@@ -1,0 +1,134 @@
+'use strict';
+const fs = require('fs');
+const http = require('http');
+const querystring = require('querystring');
+const {Transform} = require('stream');
+//const {PassThrough} = require('stream');
+
+let arg = {
+	'port': 3080,
+	'directory': '.'
+};
+for (let i = 2; i < process.argv.length; ++i) {
+	switch (process.argv[i]) {
+	case '--port':
+	case '-p':
+		if ((i + 1) < process.argv.length) {
+			arg['port'] = 0 | process.argv[i + 1];
+		}
+		break;
+	case '--directory':
+	case '--dir':
+	case '-d':
+		if ((i + 1) < process.argv.length) {
+			let directory = process.argv[i + 1];
+			if (directory.endsWith('/')) {
+				directory = directory.substr(0, directory.length - 1);
+			}
+			arg['directory'] = directory;
+		}
+		break;
+	}
+}
+
+class Config {
+	constructor(options) {
+		this.MaxBandwidthBps = 0; //最大帯域幅
+		this.readConfig(options);
+	}
+	readConfig(options) {
+		if (options) {
+			if ('MaxBandwidthBps' in options) {
+				this.MaxBandwidthBps = 0 | options.MaxBandwidthBps;
+			}
+		}
+	}
+}
+var g_Config = new Config();
+
+class ConfigTransform extends Transform {
+	constructor(options) {
+		super(options);
+		if (options) {
+			if ('config' in options) {
+				this.config = options.config;
+			} else {
+				this.config = new Config();
+			}
+		}
+	}
+	_transform(chunk, encoding, callback) {
+		if (this.config.MaxBandwidthBps <= 0) {
+			this.push(chunk);
+			callback();
+		} else {
+			let delayMs = chunk.length * 8 * 1000 / this.config.MaxBandwidthBps;
+			setTimeout(()=>{
+				this.push(chunk);
+				callback();
+			}, delayMs);
+		}
+	}
+	_flush(callback) {
+		callback();
+	}
+}
+
+const server = http.createServer();
+server.on('request', function(req, res) {
+	let separatedUrl = req.url.split('?', 2);
+	let name = separatedUrl[0];
+	let query = null;
+	if (2 == separatedUrl.length) {
+		let queryString = separatedUrl[1];
+		if (queryString && (queryString !== '')) {
+			//クエリ解析
+			query = querystring.parse(queryString);
+		}
+	}
+	if (name === '/') {
+		if (query) {
+			g_Config.readConfig(query);
+		}
+		let configJson = JSON.stringify(g_Config);
+		console.log('{"Status":200, "Config":' + configJson + '}');
+		res.writeHead(200, {
+			'Content-Type': 'application/json',
+			'Content-Length': Buffer.byteLength(configJson, 'utf8'),
+		});
+		res.write(configJson);
+		res.end();
+	} else {
+		let path = arg['directory'] + name;
+		fs.stat(path, function(err, stats) {
+			if (err) {
+				let content = err.name + '\n' + err.message;
+				console.log('{"Status":404, "FilePath":"' + name + '"}');
+				res.writeHead(404, {
+					'Content-Type': 'text/plain; charset=UTF-8',
+					'Content-Length': Buffer.byteLength(content, 'utf8'),
+				});
+				res.write(content);
+				res.end();
+			} else {
+				console.log('{"Status":200, "FilePath":"' + name + '", "FileSize":' + stats.size + '}');
+				res.writeHead(200, {
+					'Content-Type': 'application/octet-stream', //application/vnd.unity
+					'Content-Length': stats.size,
+				});
+				let configTransform = null;
+				let config = g_Config;
+				if (query) {
+					config = new Config(config);
+					config.readConfig(query);
+				}
+				configTransform = new ConfigTransform({config:config});
+				let src = fs.createReadStream(path);
+				src.pipe(configTransform).pipe(res);
+			}
+		});
+	}
+});
+
+
+server.listen(arg['port']);

@@ -18,13 +18,13 @@
 ## 使用方法
 ### データ構築
 1. アセットバンドルはInspector下部のアセットバンドル欄にアセットバンドル名・バリアント名を設定する  
-	![アセットバンドル名の設定](Assets/AssetBundleShosha/Documents/Images/AssetBundleNameSetting.png)
+	![アセットバンドル名の設定](Images/AssetBundleNameSetting.png)
 1. 配信ストリーミングアセットは```DeliveryStreamingAssets```ディレクトリ以下に保存する  
-	![配信ストリーミングアセットの設定](Assets/AssetBundleShosha/Documents/Images/DeliveryStreamingAssetsSetting.png)
+	![配信ストリーミングアセットの設定](Images/DeliveryStreamingAssetsSetting.png)
 1. 「```Assets```/```AssetBundles```/```Build AssetBundles```/```～```」を実行する  
-	<img alt="アセットバンドル構築" src="Assets/AssetBundleShosha/Documents/Images/BuildAssetBundles.png" style="height:400px;">
+	<img alt="アセットバンドル構築" src="Images/BuildAssetBundles.png" style="height:400px;">
 1. ```AssetBundles```ディレクトリ以下に配信データが生成される  
-	![配信データ](Assets/AssetBundleShosha/Documents/Images/CreatedAssetBundles.png)
+	![配信データ](Images/CreatedAssetBundles.png)
 
 ### データ参照
 1. 破棄されない```GameObject```に```AssetBundleManager```コンポーネントを付加する  
@@ -77,7 +77,7 @@
 	```
 	(文字列ではなくバイナリで指定したい場合は```byte[16]```の値を返す様に```AssetBundleCryptoKey```プロパティを書き換える)
 1. 暗号化したいアセットバンドルに「```CryptoAssetBundle```」ラベルを付ける  
-	![暗号化アセットバンドル](Assets/AssetBundleShosha/Documents/Images/CryptoAssetBundles.png)  
+	![暗号化アセットバンドル](Images/CryptoAssetBundles.png)  
 	(全アセットバンドルを暗号化したい場合は「```Assets```/```AssetBundles```/```Build AssetBundles```/```Options```/```Force Crypto```」を有効にする)
 1. 通常通りデータ構築・データ参照する
 

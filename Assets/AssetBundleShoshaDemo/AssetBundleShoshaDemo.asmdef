@@ -1,0 +1,8 @@
+{
+    "name": "AssetBundleShoshaDemo",
+    "references": [
+        "AssetBundleShosha"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": []
+}

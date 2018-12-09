@@ -1,0 +1,11 @@
+{
+    "name": "AssetBundleShoshaToolchainEditor",
+    "references": [
+        "AssetBundleShoshaToolchain",
+        "AssetBundleShoshaEditor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": []
+}
