@@ -15,6 +15,12 @@ namespace AssetBundleShosha.Utility {
 #if UNITY_EDITOR
 			if (s_Instance == null) {
 				s_Instance = FindObjectOfType<T>();
+				if (s_Instance == null) {
+					var instances = Resources.FindObjectsOfTypeAll<T>();
+					if ((instances != null) && (0 < instances.Length)) {
+						s_Instance = instances[0];
+					}
+				}
 			}
 #endif
 			return s_Instance;
