@@ -12,6 +12,7 @@ namespace AssetBundleShosha.Editor.Internal {
 	using UnityEngine;
 	using UnityEngine.Networking;
 	using UnityEditor;
+	using AssetBundleShosha.Internal;
 
 	public class HttpServerViewer : EditorWindow {
 		#region Public types
@@ -22,53 +23,27 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// HTTPサーバー有効確認
 		/// </summary>
 		public static bool enable {get{
-			var processId = SessionState.GetInt(kHttpServerProcessIdSessionStateKey, 0);
-			var result = processId != 0;
+			var result = HttpServer.Instance != null;
 			return result;
+		} set{
+			var httpServers = Resources.FindObjectsOfTypeAll<HttpServer>();
+			if (value) {
+				//起動
+				if ((httpServers == null) || (httpServers.Length == 0)) {
+					EditorUtility.CreateGameObjectWithHideFlags(typeof(HttpServer).Name, HideFlags.HideAndDontSave, typeof(HttpServer));
+				}
+			} else {
+				//終了
+				if (httpServers != null) {
+					foreach (var httpServer in httpServers) {
+						DestroyImmediate(httpServer.gameObject);
+					}
+				}
+			}
 		}}
 
 		#endregion
 		#region Public fields and properties
-
-		/// <summary>
-		/// HTTPサーバープロセス起動
-		/// </summary>
-		/// <param name="port">ポート</param>
-		/// <returns>true:成功、false:失敗</returns>
-		public static bool StartHttpServer(int port) {
-			var result = false;
-			var process = StartHttpServerProcess(port);
-			if (process != null) {
-				var processId = process.Id;
-				SessionState.SetInt(kHttpServerProcessIdSessionStateKey, processId);
-				result = true;
-			}
-			return result;
-		}
-		public static bool StartHttpServer() {
-			var port = EditorPrefs.GetInt(kHttpServerPortEditorPrefsKey, kHttpServerPortDefault);
-			return StartHttpServer(port);
-		}
-
-		/// <summary>
-		/// HTTPサーバー終了
-		/// </summary>
-		/// <param name="processId">プロセスID</param>
-		/// <returns>true:成功、false:失敗</returns>
-		private static bool ExitHttpServer() {
-			var result = false;
-			var processId = SessionState.GetInt(kHttpServerProcessIdSessionStateKey, 0);
-			if (processId != 0) {
-				var process = FindHttpServerProcess(processId);
-				if ((process != null) && !process.HasExited) {
-					process.Kill();
-					//OnExitedHttpServer() に続く
-					result = true;
-				}
-			}
-			return result;
-		}
-
 		#endregion
 		#region Public methods
 		#endregion
@@ -80,10 +55,8 @@ namespace AssetBundleShosha.Editor.Internal {
 		protected virtual void OnEnable() {
 			titleContent = new GUIContent("Shosha HTTP Server Viewer");
 
-			m_ProcessId = SessionState.GetInt(kHttpServerProcessIdSessionStateKey, 0);
-			m_Port = EditorPrefs.GetInt(kHttpServerPortEditorPrefsKey, kHttpServerPortDefault);
-
-			if (m_ProcessId != 0) {
+			m_Enable = enable;
+			if (m_Enable) {
 				EditorApplication.update += HttpServerUpdate;
 			}
 		}
@@ -93,6 +66,7 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// </summary>
 		protected virtual void OnDisable() {
 			//empty.
+			EditorApplication.update -= HttpServerUpdate;
 		}
 
 		/// <summary>
@@ -114,6 +88,8 @@ namespace AssetBundleShosha.Editor.Internal {
 			OnGUIForConfig();
 		}
 
+		#endregion
+		#region Internal const fields
 		#endregion
 		#region Private types
 
@@ -141,21 +117,6 @@ namespace AssetBundleShosha.Editor.Internal {
 		#region Private const fields
 
 		/// <summary>
-		/// HTTPサーバープロセスIDのSessionStateキー
-		/// </summary>
-		private const string kHttpServerProcessIdSessionStateKey = "AssetBundleShosha/HttpServer/ProcessId";
-
-		/// <summary>
-		/// HTTPサーバーポート初期値
-		/// </summary>
-		private const int kHttpServerPortDefault = 3080;
-
-		/// <summary>
-		/// HTTPサーバーポートのEditorPrefsキー
-		/// </summary>
-		private const string kHttpServerPortEditorPrefsKey = "AssetBundleShosha/HttpServer/Port";
-
-		/// <summary>
 		/// 有効無効コンテント
 		/// </summary>
 		private static readonly GUIContent kEnableContent = new GUIContent("Enable");
@@ -164,6 +125,11 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// ポートコンテント
 		/// </summary>
 		private static readonly GUIContent kPortContent = new GUIContent("HTTP Port");
+
+		/// <summary>
+		/// ポートリセットコンテント
+		/// </summary>
+		private static readonly GUIContent kPortResetContent = new GUIContent("Reset");
 
 		/// <summary>
 		/// URLコンテント
@@ -222,16 +188,16 @@ namespace AssetBundleShosha.Editor.Internal {
 		#region Private fields and properties
 
 		/// <summary>
-		/// 起動済みHTTPサーバーのポート
+		/// 有効確認
 		/// </summary>
 		[System.NonSerialized]
-		private int m_ProcessId = 0;
+		private bool m_Enable = false;
 
 		/// <summary>
 		/// ポート
 		/// </summary>
 		[System.NonSerialized]
-		private int m_Port = kHttpServerPortDefault;
+		private int m_Port = HttpServer.kHttpServerPortDefault;
 
 		/// <summary>
 		/// URL
@@ -263,13 +229,13 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// HTTPサーバーコンフィグ
 		/// </summary>
 		[SerializeField]
-		private static HttpServerConfig? s_HttpServerConfig = null;
+		private HttpServerConfig? m_HttpServerConfig = null;
 
 		/// <summary>
 		/// HTTPサーバーコンフィグ状態
 		/// </summary>
 		[SerializeField]
-		private static HttpServerConfigState s_HttpServerConfigState = HttpServerConfigState.Empty;
+		private HttpServerConfigState m_HttpServerConfigState = HttpServerConfigState.Empty;
 
 		#endregion
 		#region Private methods
@@ -278,31 +244,24 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// 基本描画
 		/// </summary>
 		private void OnGUIForBasic() {
-			var enable = m_ProcessId != 0;
+			var enableValue = m_Enable;
 
 			EditorGUI.BeginChangeCheck();
-			enable = EditorGUILayout.Toggle(kEnableContent, enable);
+			enableValue = EditorGUILayout.Toggle(kEnableContent, enableValue);
 			if (EditorGUI.EndChangeCheck()) {
-				if (enable) {
+				m_Enable = enableValue;
+				enable = m_Enable;
+				if (m_Enable) {
 					//有効化
-					var process = StartHttpServerProcess(m_Port);
-					if (process != null) {
-						var processId = process.Id;
-						m_ProcessId = processId;
-						SessionState.SetInt(kHttpServerProcessIdSessionStateKey, processId);
-					}
+					EditorApplication.update += HttpServerUpdate;
 				} else {
 					//無効化
-					if (!ExitHttpServerProcess(m_ProcessId)) {
-						//終了に失敗したならプロセス情報を即時削除
-						m_ProcessId = 0;
-						SessionState.EraseInt(kHttpServerProcessIdSessionStateKey);
-					}
+					EditorApplication.update -= HttpServerUpdate;
 					url = null;
 				}
 			}
 
-			if (enable) {
+			if (enableValue) {
 				//実行中
 				using (new EditorGUILayout.HorizontalScope()) {
 					var editingTextFieldOld = EditorGUIUtility.editingTextField;
@@ -316,12 +275,19 @@ namespace AssetBundleShosha.Editor.Internal {
 				}
 			} else {
 				//停止中
-				var port = m_Port;
-				EditorGUI.BeginChangeCheck();
-				port = EditorGUILayout.IntField(kPortContent, port);
-				if (EditorGUI.EndChangeCheck()) {
-					m_Port = port;
-					EditorPrefs.SetInt(kHttpServerPortEditorPrefsKey, m_Port);
+				using (new EditorGUILayout.HorizontalScope()) {
+					var port = m_Port;
+					EditorGUI.BeginChangeCheck();
+					port = EditorGUILayout.IntField(kPortContent, port);
+					if (EditorGUI.EndChangeCheck()) {
+						m_Port = port;
+						EditorPrefs.SetInt(HttpServer.kHttpServerPortEditorPrefsKey, m_Port);
+					}
+
+					if (GUILayout.Button(kPortResetContent, EditorStyles.miniButton)) {
+						m_Port = HttpServer.kHttpServerPortDefault;
+						EditorPrefs.DeleteKey(HttpServer.kHttpServerPortEditorPrefsKey);
+					}
 				}
 			}
 		}
@@ -331,14 +297,14 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// コンフィグ描画
 		/// </summary>
 		private void OnGUIForConfig() {
-			HttpServerConfig config = new HttpServerConfig();
+			var config = new HttpServerConfig();
 			var isChange = false;
-			if (s_HttpServerConfig.HasValue && (s_HttpServerConfigState != HttpServerConfigState.Invalid)) {
-				config = s_HttpServerConfig.Value;
+			if (m_HttpServerConfig.HasValue && (m_HttpServerConfigState != HttpServerConfigState.Invalid)) {
+				config = m_HttpServerConfig.Value;
 			}
 
 			var GuiEnabledOld = GUI.enabled;
-			switch (s_HttpServerConfigState) {
+			switch (m_HttpServerConfigState) {
 			case HttpServerConfigState.Valid:
 			case HttpServerConfigState.Connecting:
 			case HttpServerConfigState.ConnectingAndChange:
@@ -379,80 +345,14 @@ namespace AssetBundleShosha.Editor.Internal {
 			GUI.enabled = GuiEnabledOld2;
 
 			if (isChange) {
-				s_HttpServerConfig = config;
-				if (s_HttpServerConfigState == HttpServerConfigState.Connecting) {
-					s_HttpServerConfigState = HttpServerConfigState.ConnectingAndChange;
+				m_HttpServerConfig = config;
+				if (m_HttpServerConfigState == HttpServerConfigState.Connecting) {
+					m_HttpServerConfigState = HttpServerConfigState.ConnectingAndChange;
 				} else {
-					s_HttpServerConfigState = HttpServerConfigState.Change;
+					m_HttpServerConfigState = HttpServerConfigState.Change;
 				}
 			}
 			GUI.enabled = GuiEnabledOld;
-		}
-
-		/// <summary>
-		/// HTTPサーバープロセス起動
-		/// </summary>
-		/// <param name="port">ポート</param>
-		/// <returns>プロセス</returns>
-		private static Process StartHttpServerProcess(int port) {
-			var nodeJsPath = EditorApplication.applicationContentsPath + "/Tools/nodejs/node";
-			var httpServerNodeJsPath = Application.dataPath + "/AssetBundleShosha/Scripts/Editor/Internal/HttpServer.nodejs";
-			var httpServerAssetBundlesDirectoryPath = Application.dataPath + "/../AssetBundles";
-			var httpServerWorkingDirectoryPath = Application.dataPath + "/..";
-
-			var process = new Process();
-			process.StartInfo.FileName = nodeJsPath;
-			var processArgs = "\"" + httpServerNodeJsPath + "\" --port " + port + " --directory \"" + httpServerAssetBundlesDirectoryPath + "\"";
-			process.StartInfo.Arguments = processArgs;
-			process.StartInfo.WorkingDirectory = httpServerWorkingDirectoryPath;
-			process.StartInfo.UseShellExecute = false;
-			process.StartInfo.CreateNoWindow = true;
-			process.EnableRaisingEvents = true;
-			process.Exited += OnExitedHttpServer;
-			Process result = null;
-			if (process.Start()) {
-				if (!process.HasExited) {
-					s_HttpServerConfig = null;
-					s_HttpServerConfigState = HttpServerConfigState.Empty;
-					EditorApplication.update += HttpServerUpdate;
-					result = process;
-				}
-			}
-			//UnityEngine.Debug.Log("\"" + nodeJsPath + "\" " + processArgs);
-			return result;
-		}
-
-		/// <summary>
-		/// HTTPサーバープロセス終了
-		/// </summary>
-		/// <param name="processId">プロセスID</param>
-		/// <returns>true:成功, false:失敗</returns>
-		private static bool ExitHttpServerProcess(int processId) {
-			var result = false;
-			if (processId != 0) {
-				var process = FindHttpServerProcess(processId);
-				if ((process != null) && !process.HasExited) {
-					process.Kill();
-					//OnExitedHttpServer() に続く
-					result = true;
-				}
-			}
-			return result;
-		}
-
-		/// <summary>
-		/// HTTPサーバープロセス検索
-		/// </summary>
-		/// <param name="processId">プロセスID</param>
-		/// <returns>プロセス</returns>
-		private static Process FindHttpServerProcess(int processId) {
-			Process result = null;
-			try {
-				result = Process.GetProcessById(processId);
-			} catch (System.ArgumentException) {
-				//empty.
-			}
-			return result;
 		}
 
 		/// <summary>
@@ -496,80 +396,59 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// <summary>
 		/// HTTPサーバー更新
 		/// </summary>
-		private static void HttpServerUpdate() {
+		private void HttpServerUpdate() {
 			System.Action<AsyncOperation> readConfig = (x)=>{
 				var u = (UnityWebRequestAsyncOperation)x;
 				HttpServerConfigState state;
 				if (!u.webRequest.isNetworkError && !u.webRequest.isHttpError) {
 					var text = u.webRequest.downloadHandler.text;
-					s_HttpServerConfig = JsonUtility.FromJson<HttpServerConfig>(text);
+					m_HttpServerConfig = JsonUtility.FromJson<HttpServerConfig>(text);
 					state = HttpServerConfigState.Valid;
 				} else {
-					s_HttpServerConfig = null;
+					m_HttpServerConfig = null;
 					state = HttpServerConfigState.Invalid;
 				}
-				if (s_HttpServerConfigState == HttpServerConfigState.ConnectingAndChange) {
-					s_HttpServerConfigState = HttpServerConfigState.Change;
+				if (m_HttpServerConfigState == HttpServerConfigState.ConnectingAndChange) {
+					m_HttpServerConfigState = HttpServerConfigState.Change;
 				} else {
-					s_HttpServerConfigState = state;
+					m_HttpServerConfigState = state;
 				}
+				m_DisplayDirty = true;
 			};
 
-			if (s_HttpServerConfig == null) {
+			if (m_HttpServerConfig == null) {
 				//コンフィグが無いなら
-				if (s_HttpServerConfigState == HttpServerConfigState.Empty) {
+				switch (m_HttpServerConfigState) {
+				case HttpServerConfigState.Empty:
+				case HttpServerConfigState.Valid:
 					//コンフィグがなく、空なら
-					s_HttpServerConfigState = HttpServerConfigState.Connecting;
+					m_HttpServerConfigState = HttpServerConfigState.Connecting;
 
-					var port = EditorPrefs.GetInt(kHttpServerPortEditorPrefsKey, kHttpServerPortDefault);
+					var port = EditorPrefs.GetInt(HttpServer.kHttpServerPortEditorPrefsKey, HttpServer.kHttpServerPortDefault);
 					var url = GetUrl(port);
 					var unityWebRequest = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET, new DownloadHandlerBuffer(), null);
 					var request = unityWebRequest.SendWebRequest();
 					request.completed += readConfig;
+					break;
+				default:
+					//empty.
+					break;
 				}
-			} else if (s_HttpServerConfigState == HttpServerConfigState.Change) {
+			} else if (m_HttpServerConfigState == HttpServerConfigState.Change) {
 				//コンフィグが変更されているなら
-				s_HttpServerConfigState = HttpServerConfigState.Connecting;
+				m_HttpServerConfigState = HttpServerConfigState.Connecting;
 
 				var urlSb = new StringBuilder();
-				var port = EditorPrefs.GetInt(kHttpServerPortEditorPrefsKey, kHttpServerPortDefault);
+				var port = EditorPrefs.GetInt(HttpServer.kHttpServerPortEditorPrefsKey, HttpServer.kHttpServerPortDefault);
 				urlSb.Append(GetUrl(port));
 				urlSb.Append('?');
 				urlSb.Append("MaxBandwidthBps=");
-				urlSb.Append(s_HttpServerConfig.Value.MaxBandwidthBps);
+				urlSb.Append(m_HttpServerConfig.Value.MaxBandwidthBps);
 				var url = urlSb.ToString();
 				var unityWebRequest = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET, new DownloadHandlerBuffer(), null);
 				var request = unityWebRequest.SendWebRequest();
 				request.completed += readConfig;
 			}
-		}
-
-		/// <summary>
-		/// HTTPサーバー終了イベント
-		/// </summary>
-		/// <param name="sender">送信者</param>
-		/// <param name="e">イベントデータ</param>
-		private static void OnExitedHttpServer(object sender, System.EventArgs e) {
-			EditorApplication.delayCall = ()=>{
-				SessionState.EraseInt(kHttpServerProcessIdSessionStateKey);
-				EditorApplication.update -= HttpServerUpdate;
-				s_HttpServerConfig = null;
-				s_HttpServerConfigState = HttpServerConfigState.Empty;
-				var httpServerViewers = Resources.FindObjectsOfTypeAll<HttpServerViewer>();
-				if (httpServerViewers != null) {
-					foreach (var httpServerViewer in httpServerViewers) {
-						httpServerViewer.OnExitedHttpServer();
-					}
-				}
-			};
-		}
-
-		/// <summary>
-		/// HTTPサーバー終了イベント
-		/// </summary>
-		private void OnExitedHttpServer() {
-			m_ProcessId = 0;
-			m_DisplayDirty = true;
 		}
 
 		#endregion
