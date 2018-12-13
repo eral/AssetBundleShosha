@@ -145,7 +145,11 @@ namespace AssetBundleShosha.Internal {
 				throw new System.InvalidOperationException("Already started");
 			}
 
+#if UNITY_EDITOR_WIN
 			var nodeJsPath = EditorApplication.applicationContentsPath + "/Tools/nodejs/node";
+#else
+			var nodeJsPath = EditorApplication.applicationContentsPath + "/Tools/nodejs/bin/node";
+#endif
 			var httpServerNodeJsPath = Application.dataPath + "/AssetBundleShosha/Scripts/Editor/Internal/HttpServer.nodejs";
 			var httpServerAssetBundlesDirectoryPath = Application.dataPath + "/../AssetBundles";
 			var httpServerWorkingDirectoryPath = Application.dataPath + "/..";
