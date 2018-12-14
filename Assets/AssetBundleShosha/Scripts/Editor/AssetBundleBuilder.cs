@@ -524,12 +524,12 @@ namespace AssetBundleShosha.Editor {
 			using (var md5 = new MD5CryptoServiceProvider())
 			using (var fileStream = File.OpenRead(fullPath)) {
 				var buffer = new byte[128 * 1024];
-				var offset = 0;
+				var readSize = 0;
 				do {
-					var read = fileStream.Read(buffer, offset, buffer.Length);
+					var read = fileStream.Read(buffer, 0, buffer.Length);
 					hashBytes = md5.ComputeHash(buffer, 0, read);
-					offset += read;
-				} while (offset < fileStream.Length);
+					readSize += read;
+				} while (readSize < fileStream.Length);
 			}
 			var hashUints = new uint[4];
 			for (int i = 0, iMax = hashBytes.Length; i < iMax; ++i) {

@@ -66,12 +66,12 @@ namespace AssetBundleShosha.Internal {
 			m_HashAlgorithm.Initialize();
 			using (var fileStream = File.OpenRead(fullPath)) {
 				var buffer = new byte[128 * 1024];
-				var offset = 0;
+				var readSize = 0;
 				do {
-					var read = fileStream.Read(buffer, offset, buffer.Length);
+					var read = fileStream.Read(buffer, 0, buffer.Length);
 					result = m_HashAlgorithm.ComputeHash(buffer, 0, read);
-					offset += read;
-				} while (offset < fileStream.Length);
+					readSize += read;
+				} while (readSize < fileStream.Length);
 			}
 			return result;
 		}
@@ -112,14 +112,14 @@ namespace AssetBundleShosha.Internal {
 			uint result = 0xFFFFFFFF;
 			using (var fileStream = File.OpenRead(fullPath)) {
 				var buffer = new byte[128 * 1024];
-				var offset = 0;
+				var readSize = 0;
 				do {
-					var read = fileStream.Read(buffer, offset, buffer.Length);
+					var read = fileStream.Read(buffer, 0, buffer.Length);
 					for (int i = 0, iMax = read; i < iMax; ++i) {
 						result = crcTable[(result ^ buffer[i]) & 0xFF] ^ (result >> 8);
 					}
-					offset += read;
-				} while (offset < fileStream.Length);
+					readSize += read;
+				} while (readSize < fileStream.Length);
 			}
 			result ^= 0xFFFFFFFF;
 			return result;
