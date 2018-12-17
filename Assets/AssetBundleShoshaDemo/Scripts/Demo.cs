@@ -3,9 +3,13 @@
 
 namespace AssetBundleShoshaDemo {
 	using System.Text;
+	using System.Linq;
+	using System.Net;
+	using System.Net.Sockets;
 	using UnityEngine;
 	using UnityEngine.UI;
 	using AssetBundleShosha;
+	using AssetBundleShosha.Internal;
 
 	public class Demo : MonoBehaviour, IProgressReceiver, IErrorHandler {
 		#region Public methods
@@ -14,9 +18,7 @@ namespace AssetBundleShoshaDemo {
 		/// マネージャー初期化
 		/// </summary>
 		public void AssetBundleManagerInitialize() {
-//			var baseURL = "file:///" + Application.dataPath.Replace('\\', '/') + "/../AssetBundles/";
-			var baseURL = "http://localhost:3080/";
-			AssetBundleManager.Instance.Initialize(baseURL);
+			AssetBundleManager.Instance.Initialize(m_URL.text);
 		}
 
 		/// <summary>
@@ -261,6 +263,7 @@ namespace AssetBundleShoshaDemo {
 		/// 初回更新前
 		/// </summary>
 		protected virtual void Start() {
+			StartURL();
 			StartStatus();
 		}
 
@@ -286,6 +289,12 @@ namespace AssetBundleShoshaDemo {
 
 		#endregion
 		#region Private fields and properties
+
+		/// <summary>
+		/// URL
+		/// </summary>
+		[SerializeField]
+		private InputField m_URL;
 
 		/// <summary>
 		/// ステータス
@@ -354,6 +363,53 @@ namespace AssetBundleShoshaDemo {
 
 		#endregion
 		#region Private methods
+
+		/// <summary>
+		/// ステータス初回更新前
+		/// </summary>
+		private void StartURL() {
+			var url = GetUrl();
+
+			m_URL.text = url;
+		}
+
+		/// <summary>
+		/// URL取得
+		/// </summary>
+		/// <returns>URL</returns>
+		private static string GetUrl() {
+			const int kHttpServerPortDefault = 5080;
+			const int kUrlMaxlength = 55; //最長IPv6表記(39文字)と最長ポート表記(5文字)それにプロトコルや区切り文字が全て入る長さ
+			var sb = new StringBuilder(kUrlMaxlength);
+			sb.Append("http://");
+
+			var hostname = Dns.GetHostName();
+			var hostAddresses = Dns.GetHostAddresses(hostname);
+			if (0 < hostAddresses.Length) {
+				var hostAddress = hostAddresses.FirstOrDefault(x=>x.AddressFamily == AddressFamily.InterNetwork);
+				if (hostAddress == null) {
+					hostAddress = hostAddresses[0];
+				}
+				var address = hostAddress.ToString();
+				if (0 <= address.IndexOf('.')) {
+					//IPv4
+					sb.Append(address);
+				} else {
+					//IPv6
+					sb.Append('[');
+					sb.Append(address);
+					sb.Append(']');
+				}
+			} else {
+				sb.Append("localhost");
+			}
+			sb.Append(':');
+			sb.Append(kHttpServerPortDefault);
+			sb.Append('/');
+
+			var result = sb.ToString();
+			return result;
+		}
 
 		/// <summary>
 		/// ステータス初回更新前
