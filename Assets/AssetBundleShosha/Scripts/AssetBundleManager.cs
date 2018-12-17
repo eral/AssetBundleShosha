@@ -478,13 +478,7 @@ namespace AssetBundleShosha {
 		/// <returns>情報</returns>
 		internal DeliveryStreamingAssetCacheIndex.Info SetDeliveryStreamingAssetCache(string assetBundleNameWithVariant, Hash128 hash, uint crc, uint fileSize) {
 			var result = m_DeliveryStreamingAssetCacheIndex.SetInfo(assetBundleNameWithVariant, hash, crc, fileSize);
-			var fullPath = GetDeliveryStreamingAssetsCacheIndexFullPath();
-			try {
-				m_DeliveryStreamingAssetCacheIndex.Save(fullPath);
-			} catch (IOException) {
-				//読み込みミスなら
-				//empty.
-			}
+			SaveDeliveryStreamingAssetCacheIndex();
 			return result;
 		}
 
@@ -750,9 +744,11 @@ namespace AssetBundleShosha {
 			var fullPath = GetDeliveryStreamingAssetsCacheIndexFullPath();
 			try {
 				m_DeliveryStreamingAssetCacheIndex.Load(fullPath);
-			} catch (IOException) {
+			} catch {
 				//読み込みミスなら
 				//empty.
+				//初回はファイルが無いのでそれに起因する例外が投げられる事は想定内だが
+				//この時に投げられる例外がプラットフォームに依ってバラバラな為、全部受け取る
 			}
 		}
 
@@ -761,12 +757,7 @@ namespace AssetBundleShosha {
 		/// </summary>
 		private void SaveDeliveryStreamingAssetCacheIndex() {
 			var fullPath = GetDeliveryStreamingAssetsCacheIndexFullPath();
-			try {
-				m_DeliveryStreamingAssetCacheIndex.Save(fullPath);
-			} catch (IOException) {
-				//書き出しミスなら
-				//empty.
-			}
+			m_DeliveryStreamingAssetCacheIndex.Save(fullPath);
 		}
 
 		/// <summary>
