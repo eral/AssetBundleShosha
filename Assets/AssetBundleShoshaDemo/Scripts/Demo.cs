@@ -315,7 +315,7 @@ namespace AssetBundleShoshaDemo {
 		private Texture m_Texture;
 
 		/// <summary>
-		/// テクスチャ
+		/// スプライト
 		/// </summary>
 		[SerializeField][HideInInspector]
 		private Sprite m_Sprite;
