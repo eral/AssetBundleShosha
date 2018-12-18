@@ -2,6 +2,7 @@
 // This is free and unencumbered software released into the public domain.
 
 namespace AssetBundleShoshaDemo {
+	using System.IO;
 	using System.Text;
 	using System.Linq;
 	using System.Net;
@@ -187,6 +188,52 @@ namespace AssetBundleShoshaDemo {
 		}
 
 		/// <summary>
+		/// 配信ストリーミングアセット読み込み
+		/// </summary>
+		public void LoadDeliveryStreamingAsset() {
+			AssetBundleManager.Instance.LoadAssetBundle("DeliveryStreamingAssets:AssetBundleShoshaDemo/DeliveryStreamingAssets", x=>{
+				m_DeliveryStreamingAsset = x;
+				UpdateStatus();
+			});
+		}
+
+		/// <summary>
+		/// 配信ストリーミングアセット破棄
+		/// </summary>
+		public void DisposeDeliveryStreamingAsset() {
+			if (m_DeliveryStreamingAsset != null) {
+				m_DeliveryStreamingAsset.Dispose();
+				m_DeliveryStreamingAsset = null;
+			}
+		}
+
+		/// <summary>
+		/// 配信ストリーミングアセットnull化
+		/// </summary>
+		public void NullifyDeliveryStreamingAsset() {
+			m_DeliveryStreamingAsset = null;
+		}
+
+		/// <summary>
+		/// 配信ストリーミングアセットからコンテンツ読み込み
+		/// </summary>
+		public void LoadContentFromDeliveryStreamingAsset() {
+			if (m_DeliveryStreamingAsset != null) {
+				var deliveryStreamingAssetPath = m_DeliveryStreamingAsset.deliveryStreamingAssetPath;
+				if (!string.IsNullOrEmpty(deliveryStreamingAssetPath)) {
+					m_ContentAtDeliveryStreamingAsset = File.ReadAllBytes(deliveryStreamingAssetPath);
+				}
+			}
+		}
+
+		/// <summary>
+		/// コンテンツnull化
+		/// </summary>
+		public void NullifyContentAtDeliveryStreamingAsset() {
+			m_ContentAtDeliveryStreamingAsset = null;
+		}
+
+		/// <summary>
 		/// 進捗開始
 		/// </summary>
 		/// <remarks>
@@ -341,6 +388,18 @@ namespace AssetBundleShoshaDemo {
 		private IAssetBundle m_MissingAssetBundle;
 
 		/// <summary>
+		/// 配信ストリーミングアセット
+		/// </summary>
+		[SerializeField][HideInInspector]
+		private IAssetBundle m_DeliveryStreamingAsset;
+
+		/// <summary>
+		/// 配信ストリーミングアセットのコンテンツ
+		/// </summary>
+		[SerializeField][HideInInspector]
+		private byte[] m_ContentAtDeliveryStreamingAsset;
+
+		/// <summary>
 		/// ステータス文字列
 		/// </summary>
 		private StringBuilder m_StatusStringBuilder;
@@ -470,6 +529,22 @@ namespace AssetBundleShoshaDemo {
 			m_StatusStringBuilder.Append('\n');
 			m_StatusStringBuilder.Append("DependenciesTexture: ");
 			if (m_DependenciesTexture != null) {
+				m_StatusStringBuilder.Append("valid");
+			} else {
+				m_StatusStringBuilder.Append("null");
+			}
+			m_StatusStringBuilder.Append('\n');
+			m_StatusStringBuilder.Append("DeliveryStreamingAsset: ");
+			if (m_DeliveryStreamingAsset == null) {
+				m_StatusStringBuilder.Append("null");
+			} else if (!m_DeliveryStreamingAsset.isDone) {
+				m_StatusStringBuilder.Append("downloading");
+			} else {
+				m_StatusStringBuilder.Append("valid");
+			}
+			m_StatusStringBuilder.Append('\n');
+			m_StatusStringBuilder.Append("Content: ");
+			if (m_ContentAtDeliveryStreamingAsset != null) {
 				m_StatusStringBuilder.Append("valid");
 			} else {
 				m_StatusStringBuilder.Append("null");
