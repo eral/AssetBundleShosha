@@ -39,7 +39,7 @@ namespace AssetBundleShoshaDemo {
 		/// ソロアセットバンドル読み込み
 		/// </summary>
 		public void LoadSoloAssetBundle() {
-			m_SoloAssetBundle = AssetBundleManager.Instance.LoadAssetBundle("AssetBundleShoshaDemo/Textures1");
+			m_SoloAssetBundle = AssetBundleManager.Instance.LoadAssetBundle("AssetBundleShoshaDemo/Textures0");
 		}
 
 		/// <summary>
@@ -125,21 +125,23 @@ namespace AssetBundleShoshaDemo {
 		}
 
 		/// <summary>
-		/// 依存有りアセットバンドルからサークル読み込み
+		/// 依存有りアセットバンドルからテクスチャ読み込み
 		/// </summary>
-		public void LoadCircleFromDependenciesAssetBundle() {
+		public void LoadTextureFromDependenciesAssetBundle() {
 			if (m_DependenciesAssetBundle != null) {
-				m_DependenciesAssetBundle.LoadAssetAsync<Material>("Circle").completed += x=>{
-					m_Circle = (Material)x;
+				m_DependenciesAssetBundle.LoadAssetAsync<Material>("Noise").completed += x=>{
+					var loadRequest = (IAssetBundleRequest)x;
+					var material = (Material)loadRequest.asset;
+					m_DependenciesTexture = material.mainTexture;
 				};
 			}
 		}
 
 		/// <summary>
-		/// サークルnull化
+		/// テクスチャnull化
 		/// </summary>
-		public void NullifyCircle() {
-			m_Circle = null;
+		public void NullifyDependenciesTexture() {
+			m_DependenciesTexture = null;
 		}
 
 		/// <summary>
@@ -327,10 +329,10 @@ namespace AssetBundleShoshaDemo {
 		private IAssetBundle m_DependenciesAssetBundle;
 
 		/// <summary>
-		/// Circle
+		/// 依存有りテクスチャ
 		/// </summary>
 		[SerializeField][HideInInspector]
-		private Material m_Circle;
+		private Texture m_DependenciesTexture;
 
 		/// <summary>
 		/// 存在しないアセットバンドル
@@ -466,8 +468,8 @@ namespace AssetBundleShoshaDemo {
 				m_StatusStringBuilder.Append("null");
 			}
 			m_StatusStringBuilder.Append('\n');
-			m_StatusStringBuilder.Append("Circle: ");
-			if (m_Circle != null) {
+			m_StatusStringBuilder.Append("DependenciesTexture: ");
+			if (m_DependenciesTexture != null) {
 				m_StatusStringBuilder.Append("valid");
 			} else {
 				m_StatusStringBuilder.Append("null");
