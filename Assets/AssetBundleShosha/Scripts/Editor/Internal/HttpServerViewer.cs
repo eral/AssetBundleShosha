@@ -83,7 +83,6 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// 描画
 		/// </summary>
 		protected virtual void OnGUI() {
-			EditorGUILayout.HelpBox("experimental", MessageType.Warning);
 			OnGUIForBasic();
 			OnGUIForConfig();
 		}

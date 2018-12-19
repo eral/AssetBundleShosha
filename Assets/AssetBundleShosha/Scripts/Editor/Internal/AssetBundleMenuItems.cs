@@ -156,7 +156,7 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// <summary>
 		/// ビューアー・HTTPサーバー
 		/// </summary>
-		[MenuItem("Assets/AssetBundles/Viewer/Shosha HTTP Server Viewer (experimental)", false, 30040)]
+		[MenuItem("Assets/AssetBundles/Viewer/Shosha HTTP Server Viewer", false, 30040)]
 		public static void ShowHttpServerViewer() {
 			var inspectorWindowType = System.Reflection.Assembly.Load("UnityEditor").GetType("UnityEditor.InspectorWindow");
 			EditorWindow.GetWindow<HttpServerViewer>(inspectorWindowType);
