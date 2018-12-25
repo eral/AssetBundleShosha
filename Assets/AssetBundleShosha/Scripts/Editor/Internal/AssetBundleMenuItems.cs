@@ -161,6 +161,12 @@ namespace AssetBundleShosha.Editor.Internal {
 			var inspectorWindowType = System.Reflection.Assembly.Load("UnityEditor").GetType("UnityEditor.InspectorWindow");
 			EditorWindow.GetWindow<HttpServerViewer>(inspectorWindowType);
 		}
+		[MenuItem("Assets/AssetBundles/Viewer/Shosha HTTP Server Viewer", true)]
+		public static bool ShowHttpServerViewerValidate() {
+			var isChecked = HttpServerViewer.enable;
+			Menu.SetChecked("Assets/AssetBundles/Viewer/Shosha HTTP Server Viewer", isChecked);
+			return true;
+		}
 
 		/// <summary>
 		/// アセットバンドル・配信ストリーミングアセットのキャッシュ削除
