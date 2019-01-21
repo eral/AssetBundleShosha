@@ -98,6 +98,9 @@ server.on('request', function(req, res) {
 		});
 		res.write(configJson);
 		res.end();
+		if (query && ('API' in query) && (query['API'] == 'exit')) {
+			process.exit();
+		}
 	} else {
 		let path = arg['directory'] + name;
 		fs.stat(path, function(err, stats) {
