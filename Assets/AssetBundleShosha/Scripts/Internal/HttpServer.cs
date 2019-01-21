@@ -7,6 +7,7 @@ namespace AssetBundleShosha.Internal {
 	using System.Collections.Generic;
 	using Process = System.Diagnostics.Process;
 	using UnityEngine;
+	using UnityEngine.Events;
 	using UnityEditor;
 	using AssetBundleShosha.Utility;
 
@@ -45,6 +46,16 @@ namespace AssetBundleShosha.Internal {
 			}
 		}}
 
+		/// <summary>
+		/// 終了時イベント
+		/// </summary>
+		public UnityEvent onWillFinish {get{
+			if (m_OnWillFinish == null) {
+				m_OnWillFinish = new UnityEvent();
+			}
+			return m_OnWillFinish;
+		}}
+
 		#endregion
 		#region Public methods
 		#endregion
@@ -70,13 +81,21 @@ namespace AssetBundleShosha.Internal {
 			if (!success) {
 				Destroy(gameObject);
 			}
+			if (!Application.isPlaying) {
+				EditorApplication.update += Update;
+			}
 		}
 
 		/// <summary>
 		/// 無効化
 		/// </summary>
 		protected virtual void OnDisable() {
+			EditorApplication.update -= Update;
 			ExitHttpServer();
+			if (m_OnWillFinish != null) {
+				m_OnWillFinish.Invoke();
+				m_OnWillFinish = null;
+			}
 		}
 
 		/// <summary>
@@ -84,7 +103,11 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		protected virtual void Update() {
 			if ((m_Process == null) || (m_Process.HasExited)) {
-				Destroy(gameObject);
+				if (Application.isPlaying) {
+					Destroy(gameObject);
+				} else {
+					DestroyImmediate(gameObject);
+				}
 			}
 		}
 
@@ -132,6 +155,12 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		[System.NonSerialized]
 		private int m_Port = kHttpServerPortDefault;
+
+		/// <summary>
+		/// 終了時イベント
+		/// </summary>
+		[System.NonSerialized]
+		private UnityEvent m_OnWillFinish = null;
 
 		#endregion
 		#region Private methods

@@ -57,6 +57,7 @@ namespace AssetBundleShosha.Editor.Internal {
 
 			m_Enable = enable;
 			if (m_Enable) {
+				AddOnWillFinishListener();
 				EditorApplication.update += HttpServerUpdate;
 			}
 		}
@@ -65,8 +66,8 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// 破棄
 		/// </summary>
 		protected virtual void OnDisable() {
-			//empty.
 			EditorApplication.update -= HttpServerUpdate;
+			RemoveOnWillFinishListener();
 		}
 
 		/// <summary>
@@ -252,9 +253,11 @@ namespace AssetBundleShosha.Editor.Internal {
 				enable = m_Enable;
 				if (m_Enable) {
 					//有効化
+					AddOnWillFinishListener();
 					EditorApplication.update += HttpServerUpdate;
 				} else {
 					//無効化
+					RemoveOnWillFinishListener();
 					EditorApplication.update -= HttpServerUpdate;
 					url = null;
 				}
@@ -448,6 +451,38 @@ namespace AssetBundleShosha.Editor.Internal {
 				var request = unityWebRequest.SendWebRequest();
 				request.completed += readConfig;
 			}
+		}
+
+		/// <summary>
+		/// HTTPサーバー終了時イベント登録
+		/// </summary>
+		private void AddOnWillFinishListener() {
+			var httpServers = Resources.FindObjectsOfTypeAll<HttpServer>();
+			if (httpServers != null) {
+				foreach (var httpServer in httpServers) {
+					httpServer.onWillFinish.RemoveListener(OnWillFinishHttpServer); //既に登録済みのHttpServerにも呼ぶ事がある為、一旦外してみる
+					httpServer.onWillFinish.AddListener(OnWillFinishHttpServer);
+				}
+			}
+		}
+
+		/// <summary>
+		/// HTTPサーバー終了時イベント解除
+		/// </summary>
+		private void RemoveOnWillFinishListener() {
+			var httpServers = Resources.FindObjectsOfTypeAll<HttpServer>();
+			if (httpServers != null) {
+				foreach (var httpServer in httpServers) {
+					httpServer.onWillFinish.RemoveListener(OnWillFinishHttpServer);
+				}
+			}
+		}
+
+		/// <summary>
+		/// HTTPサーバー終了時イベント
+		/// </summary>
+		private void OnWillFinishHttpServer() {
+			m_Enable = false;
 		}
 
 		#endregion
