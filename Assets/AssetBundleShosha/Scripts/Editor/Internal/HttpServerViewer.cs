@@ -105,9 +105,8 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// HTTPサーバーコンフィグ状態
 		/// </summary>
 		private enum HttpServerConfigState {
-			Empty,
-			Valid,
 			Invalid,
+			Valid,
 			Connecting,
 			Change,
 			ConnectingAndChange,
@@ -229,13 +228,13 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// HTTPサーバーコンフィグ
 		/// </summary>
 		[SerializeField]
-		private HttpServerConfig? m_HttpServerConfig = null;
+		private HttpServerConfig m_HttpServerConfig;
 
 		/// <summary>
 		/// HTTPサーバーコンフィグ状態
 		/// </summary>
 		[SerializeField]
-		private HttpServerConfigState m_HttpServerConfigState = HttpServerConfigState.Empty;
+		private HttpServerConfigState m_HttpServerConfigState = HttpServerConfigState.Invalid;
 
 		#endregion
 		#region Private methods
@@ -299,11 +298,8 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// コンフィグ描画
 		/// </summary>
 		private void OnGUIForConfig() {
-			var config = new HttpServerConfig();
+			var config = ((m_HttpServerConfigState != HttpServerConfigState.Invalid)? m_HttpServerConfig: new HttpServerConfig());
 			var isChange = false;
-			if (m_HttpServerConfig.HasValue && (m_HttpServerConfigState != HttpServerConfigState.Invalid)) {
-				config = m_HttpServerConfig.Value;
-			}
 
 			var GuiEnabledOld = GUI.enabled;
 			switch (m_HttpServerConfigState) {
@@ -407,7 +403,6 @@ namespace AssetBundleShosha.Editor.Internal {
 					m_HttpServerConfig = JsonUtility.FromJson<HttpServerConfig>(text);
 					state = HttpServerConfigState.Valid;
 				} else {
-					m_HttpServerConfig = null;
 					state = HttpServerConfigState.Invalid;
 				}
 				if (m_HttpServerConfigState == HttpServerConfigState.ConnectingAndChange) {
@@ -418,24 +413,15 @@ namespace AssetBundleShosha.Editor.Internal {
 				m_DisplayDirty = true;
 			};
 
-			if (m_HttpServerConfig == null) {
+			if (m_HttpServerConfigState == HttpServerConfigState.Invalid) {
 				//コンフィグが無いなら
-				switch (m_HttpServerConfigState) {
-				case HttpServerConfigState.Empty:
-				case HttpServerConfigState.Valid:
-					//コンフィグがなく、空なら
-					m_HttpServerConfigState = HttpServerConfigState.Connecting;
+				m_HttpServerConfigState = HttpServerConfigState.Connecting;
 
-					var port = EditorPrefs.GetInt(HttpServer.kHttpServerPortEditorPrefsKey, HttpServer.kHttpServerPortDefault);
-					var url = GetUrl(port);
-					var unityWebRequest = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET, new DownloadHandlerBuffer(), null);
-					var request = unityWebRequest.SendWebRequest();
-					request.completed += readConfig;
-					break;
-				default:
-					//empty.
-					break;
-				}
+				var port = EditorPrefs.GetInt(HttpServer.kHttpServerPortEditorPrefsKey, HttpServer.kHttpServerPortDefault);
+				var url = GetUrl(port);
+				var unityWebRequest = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET, new DownloadHandlerBuffer(), null);
+				var request = unityWebRequest.SendWebRequest();
+				request.completed += readConfig;
 			} else if (m_HttpServerConfigState == HttpServerConfigState.Change) {
 				//コンフィグが変更されているなら
 				m_HttpServerConfigState = HttpServerConfigState.Connecting;
@@ -445,7 +431,7 @@ namespace AssetBundleShosha.Editor.Internal {
 				urlSb.Append(GetUrl(port));
 				urlSb.Append('?');
 				urlSb.Append("MaxBandwidthBps=");
-				urlSb.Append(m_HttpServerConfig.Value.MaxBandwidthBps);
+				urlSb.Append(m_HttpServerConfig.MaxBandwidthBps);
 				var url = urlSb.ToString();
 				var unityWebRequest = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET, new DownloadHandlerBuffer(), null);
 				var request = unityWebRequest.SendWebRequest();
@@ -483,6 +469,7 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// </summary>
 		private void OnWillFinishHttpServer() {
 			m_Enable = false;
+			m_HttpServerConfigState = HttpServerConfigState.Invalid;
 		}
 
 		#endregion
