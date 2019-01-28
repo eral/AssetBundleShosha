@@ -1,5 +1,5 @@
 {
-    "name": "AssetBundleShoshaToolchainEditor",
+    "name": "AssetBundleShoshaToolchain.Editor",
     "references": [
         "AssetBundleShoshaToolchain",
         "AssetBundleShosha.Editor"
