@@ -2,7 +2,7 @@
     "name": "AssetBundleShoshaDemoEditor",
     "references": [
         "AssetBundleShoshaDemo",
-        "AssetBundleShoshaEditor"
+        "AssetBundleShosha.Editor"
     ],
     "includePlatforms": [
         "Editor"
