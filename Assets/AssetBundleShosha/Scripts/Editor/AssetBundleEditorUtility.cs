@@ -218,7 +218,7 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="manager">マネージャー</param>
 		/// <returns>参照カウンター</returns>
 		public static int GetReferenceCount(this AssetBundleBase assetBundle) {
-			return GetReferenceCountFunction(assetBundle);
+			return assetBundle.referenceCount;
 		}
 
 		#endregion
@@ -227,7 +227,6 @@ namespace AssetBundleShosha.Editor {
 		#region Private const fields
 		#endregion
 		#region Private fields and properties
-
 
 		/// <summary>
 		/// OutputDetailJsonビルドオプション
