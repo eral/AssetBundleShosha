@@ -6,7 +6,6 @@ namespace AssetBundleShosha.Editor {
 	using UnityEngine;
 	using UnityEditor;
 	using System.Collections.Generic;
-	using System.Reflection;
 	using System.IO;
 	using AssetBundleShosha.Internal;
 
