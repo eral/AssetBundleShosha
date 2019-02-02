@@ -182,7 +182,7 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="manager">マネージャー</param>
 		/// <returns>ダウンロードキュー</returns>
 		public static Queue<AssetBundleBase> GetDownloadQueue(this AssetBundleManager manager) {
-			return GetDownloadQueueFunction(manager);
+			return manager.downloadQueue;
 		}
 
 		/// <summary>
@@ -191,7 +191,7 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="manager">マネージャー</param>
 		/// <returns>ダウンロード中ー</returns>
 		public static Queue<AssetBundleBase> GetDownloading(this AssetBundleManager manager) {
-			return GetDownloadingFunction(manager);
+			return manager.downloading;
 		}
 
 		/// <summary>
@@ -200,7 +200,7 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="manager">マネージャー</param>
 		/// <returns>ダウンロード済み</returns>
 		public static Dictionary<string, AssetBundleBase> GetDownloaded(this AssetBundleManager manager) {
-			return GetDownloadedFunction(manager);
+			return manager.downloaded;
 		}
 
 		/// <summary>
@@ -209,7 +209,7 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="manager">マネージャー</param>
 		/// <returns>進捗中</returns>
 		public static Dictionary<string, AssetBundleBase> GetProgressing(this AssetBundleManager manager) {
-			return GetProgressingFunction(manager);
+			return manager.progressing;
 		}
 
 		/// <summary>
@@ -228,70 +228,6 @@ namespace AssetBundleShosha.Editor {
 		#endregion
 		#region Private fields and properties
 
-		/// <summary>
-		/// ダウンロードキュー取得関数
-		/// </summary>
-		private static System.Func<AssetBundleManager, Queue<AssetBundleBase>> s_GetDownloadQueueFunction = null;
-		private static System.Func<AssetBundleManager, Queue<AssetBundleBase>> GetDownloadQueueFunction {get{
-			if (s_GetDownloadQueueFunction == null) {
-				var kBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-				var fieldInfo = typeof(AssetBundleManager).GetField("m_DownloadQueue", kBindingFlags);
-				s_GetDownloadQueueFunction = x=>(Queue<AssetBundleBase>)fieldInfo.GetValue(x);
-			}
-			return s_GetDownloadQueueFunction;
-		}}
-
-		/// <summary>
-		/// ダウンロード中取得関数
-		/// </summary>
-		private static System.Func<AssetBundleManager, Queue<AssetBundleBase>> s_GetDownloadingFunction = null;
-		private static System.Func<AssetBundleManager, Queue<AssetBundleBase>> GetDownloadingFunction {get{
-			if (s_GetDownloadingFunction == null) {
-				var kBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-				var fieldInfo = typeof(AssetBundleManager).GetField("m_Downloading", kBindingFlags);
-				s_GetDownloadingFunction = x=>(Queue<AssetBundleBase>)fieldInfo.GetValue(x);
-			}
-			return s_GetDownloadingFunction;
-		}}
-
-		/// <summary>
-		/// ダウンロード済み取得関数
-		/// </summary>
-		private static System.Func<AssetBundleManager, Dictionary<string, AssetBundleBase>> s_GetDownloadedFunction = null;
-		private static System.Func<AssetBundleManager, Dictionary<string, AssetBundleBase>> GetDownloadedFunction {get{
-			if (s_GetDownloadedFunction == null) {
-				var kBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-				var fieldInfo = typeof(AssetBundleManager).GetField("m_Downloaded", kBindingFlags);
-				s_GetDownloadedFunction = x=>(Dictionary<string, AssetBundleBase>)fieldInfo.GetValue(x);
-			}
-			return s_GetDownloadedFunction;
-		}}
-
-		/// <summary>
-		/// 進捗中取得関数
-		/// </summary>
-		private static System.Func<AssetBundleManager, Dictionary<string, AssetBundleBase>> s_GetProgressingFunction = null;
-		private static System.Func<AssetBundleManager, Dictionary<string, AssetBundleBase>> GetProgressingFunction {get{
-			if (s_GetProgressingFunction == null) {
-				var kBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-				var fieldInfo = typeof(AssetBundleManager).GetField("m_Progressing", kBindingFlags);
-				s_GetProgressingFunction = x=>(Dictionary<string, AssetBundleBase>)fieldInfo.GetValue(x);
-			}
-			return s_GetProgressingFunction;
-		}}
-
-		/// <summary>
-		/// 進捗中取得関数
-		/// </summary>
-		private static System.Func<AssetBundleBase, int> s_GetReferenceCountFunction = null;
-		private static System.Func<AssetBundleBase, int> GetReferenceCountFunction {get{
-			if (s_GetReferenceCountFunction == null) {
-				var kBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-				var fieldInfo = typeof(AssetBundleBase).GetField("m_ReferenceCount", kBindingFlags);
-				s_GetReferenceCountFunction = x=>(int)fieldInfo.GetValue(x);
-			}
-			return s_GetReferenceCountFunction;
-		}}
 
 		/// <summary>
 		/// OutputDetailJsonビルドオプション

@@ -380,6 +380,34 @@ namespace AssetBundleShosha {
 
 #if UNITY_EDITOR
 		/// <summary>
+		/// ダウンロードキュー
+		/// </summary>
+		internal Queue<AssetBundleBase> downloadQueue {get{return m_DownloadQueue;}}
+#endif
+
+#if UNITY_EDITOR
+		/// <summary>
+		/// ダウンロード中
+		/// </summary>
+		internal Queue<AssetBundleBase> downloading {get{return m_Downloading;}}
+#endif
+
+#if UNITY_EDITOR
+		/// <summary>
+		/// ダウンロード済み
+		/// </summary>
+		internal Dictionary<string, AssetBundleBase> downloaded {get{return m_Downloaded;}}
+#endif
+
+#if UNITY_EDITOR
+		/// <summary>
+		/// 進捗中
+		/// </summary>
+		internal Dictionary<string, AssetBundleBase> progressing {get{return m_Progressing;}}
+#endif
+
+#if UNITY_EDITOR
+		/// <summary>
 		/// エディタ用マネージャー
 		/// </summary>
 		internal AssetBundleManagerEditor editor {get{
