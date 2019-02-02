@@ -108,7 +108,7 @@ namespace AssetBundleShosha.Internal {
 		/// Rijndael計算機
 		/// </summary>
 #if UNITY_EDITOR
-		protected 
+		internal 
 #else
 		private 
 #endif
@@ -127,7 +127,7 @@ namespace AssetBundleShosha.Internal {
 		/// 暗号化キー辞書
 		/// </summary>
 #if UNITY_EDITOR
-		protected 
+		internal 
 #else
 		private 
 #endif
