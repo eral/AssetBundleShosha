@@ -68,6 +68,7 @@ namespace AssetBundleShosha.Editor {
 				catalog.hideFlags -= HideFlags.DontUnloadUnusedAsset;
 			}
 			catalog.OnBuildFinished();
+			CatalogPostprocess(catalog);
 
 			CreateAssetBundleCatalogAssetBundle(catalog, kOutputPath, targetPlatform, options);
 
@@ -364,6 +365,26 @@ namespace AssetBundleShosha.Editor {
 				dst.SetAssetBundleFileSize(assetBundleIndex, src2.GetAssetBundleFileSize(AssetBundle));
 				dst.SetAssetBundlePath(assetBundleIndex, src2.GetAssetBundlePath(AssetBundle));
 			}
+		}
+
+		/// <summary>
+		/// カタログポストプロセス
+		/// </summary>
+		/// <param name="catalog">カタログ</param>
+		private static void CatalogPostprocess(AssetBundleCatalog catalog) {
+			const BindingFlags kCatalogPostprocessMethodBindingFlags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+			var postProcess = System.AppDomain.CurrentDomain
+											.GetAssemblies()
+											.SelectMany(x=>x.GetTypes())
+											.SelectMany(x=>x.GetMethods(kCatalogPostprocessMethodBindingFlags))
+											.SelectMany(x=>System.Attribute.GetCustomAttributes(x, typeof(AssetBundleCatalogPostprocessorAttribute))
+																			.Select(y=>new{method = x, order = ((AssetBundleCatalogPostprocessorAttribute)y).order}))
+											.ToList();
+			postProcess.Sort((x,y)=>x.order - y.order);
+			var invokeParameters = new[]{new AssetBundleCatalogPostprocessorArg(catalog)};
+			postProcess.ForEach(x=>{
+				x.method.Invoke(null, kCatalogPostprocessMethodBindingFlags, null, invokeParameters, null);
+			});
 		}
 
 		/// <summary>

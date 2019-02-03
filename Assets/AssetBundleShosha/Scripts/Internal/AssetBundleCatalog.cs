@@ -26,7 +26,12 @@ namespace AssetBundleShosha.Internal {
 		/// <summary>
 		/// ユーザーデータ
 		/// </summary>
-		public byte[] userData {get{return m_UserData;}}
+		public byte[] userData {
+			get{return m_UserData;}
+#if UNITY_EDITOR
+			set{m_UserData = value;}
+#endif
+		}
 
 		#endregion
 		#region Public methods

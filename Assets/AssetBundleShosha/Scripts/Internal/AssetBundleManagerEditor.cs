@@ -7,6 +7,7 @@ namespace AssetBundleShosha.Internal {
 	using System.Collections.Generic;
 	using System.Linq;
 	using System.IO;
+	using System.Reflection;
 	using UnityEngine;
 	using UnityEngine.Events;
 	using UnityEngine.Networking;
@@ -231,6 +232,7 @@ namespace AssetBundleShosha.Internal {
 				}
 				m_DeliveryStreamingAssetPathsCatalog = new Dictionary<string, string>();
 				SyncCatalog(m_Catalog, m_DeliveryStreamingAssetPathsCatalog);
+				CatalogPostprocess(m_Catalog);
 			}
 		}
 
@@ -263,6 +265,46 @@ namespace AssetBundleShosha.Internal {
 				catalog.SetDependencies(i, dependencies, dependencies);
 				catalog.SetAssetBundleFileSize(i, fileSize);
 			}
+		}
+
+		/// <summary>
+		/// カタログポストプロセス
+		/// </summary>
+		/// <param name="catalog">カタログ</param>
+		private static void CatalogPostprocess(AssetBundleCatalog catalog) {
+			var assetBundleShoshaEditorAssembly = System.AppDomain.CurrentDomain
+																	.GetAssemblies()
+																	.Where(x=>x.FullName.StartsWith("AssetBundleShosha.Editor,"))
+																	.FirstOrDefault();
+			if (assetBundleShoshaEditorAssembly == null) {
+				return;
+			}
+			var assetBundleCatalogPostprocessorAttributeType = assetBundleShoshaEditorAssembly.GetType("AssetBundleShosha.Editor.AssetBundleCatalogPostprocessorAttribute");
+			if (assetBundleCatalogPostprocessorAttributeType == null) {
+				return;
+			}
+			var assetBundleCatalogPostprocessorArgType = assetBundleShoshaEditorAssembly.GetType("AssetBundleShosha.Editor.AssetBundleCatalogPostprocessorArg");
+			if (assetBundleCatalogPostprocessorArgType == null) {
+				return;
+			}
+			var assetBundleCatalogPostprocessorAttributeOrderPropertyBindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly;
+			var assetBundleCatalogPostprocessorAttributeOrderProperty = assetBundleCatalogPostprocessorAttributeType.GetProperty("order", assetBundleCatalogPostprocessorAttributeOrderPropertyBindingFlags);
+
+			const BindingFlags kCatalogPostprocessMethodBindingFlags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+			var postProcess = System.AppDomain.CurrentDomain
+											.GetAssemblies()
+											.SelectMany(x=>x.GetTypes())
+											.SelectMany(x=>x.GetMethods(kCatalogPostprocessMethodBindingFlags))
+											.SelectMany(x=>System.Attribute.GetCustomAttributes(x, assetBundleCatalogPostprocessorAttributeType)
+																			.Select(y=>new{method = x, order = (int)assetBundleCatalogPostprocessorAttributeOrderProperty.GetValue(y, null)}))
+											.ToList();
+			postProcess.Sort((x,y)=>x.order - y.order);
+			const BindingFlags kAssetBundleCatalogPostprocessorArgCreateInstanceBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+			var assetBundleCatalogPostprocessorArgInstance = System.Activator.CreateInstance(assetBundleCatalogPostprocessorArgType, kAssetBundleCatalogPostprocessorArgCreateInstanceBindingFlags, null, new[]{catalog}, System.Globalization.CultureInfo.CurrentUICulture);
+			var invokeParameters = new[]{assetBundleCatalogPostprocessorArgInstance};
+			postProcess.ForEach(x=>{
+				x.method.Invoke(null, kCatalogPostprocessMethodBindingFlags, null, invokeParameters, null);
+			});
 		}
 
 		/// <summary>
