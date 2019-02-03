@@ -221,7 +221,7 @@ namespace AssetBundleShosha.Internal {
 		/// <summary>
 		/// 構築完了後イベント
 		/// </summary>
-		public virtual void OnBuildFinish() {
+		public virtual void OnBuildFinished() {
 			//empty.
 		}
 

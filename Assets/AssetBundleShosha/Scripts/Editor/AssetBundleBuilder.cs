@@ -67,7 +67,7 @@ namespace AssetBundleShosha.Editor {
 			if (!catalogAlreadyDontUnloadUnusedAsset) {
 				catalog.hideFlags -= HideFlags.DontUnloadUnusedAsset;
 			}
-			catalog.OnBuildFinish();
+			catalog.OnBuildFinished();
 
 			CreateAssetBundleCatalogAssetBundle(catalog, kOutputPath, targetPlatform, options);
 
@@ -245,7 +245,7 @@ namespace AssetBundleShosha.Editor {
 											, path
 											);
 			}
-			result.OnBuildFinish();
+			result.OnBuildFinished();
 			return result;
 		}
 
@@ -329,7 +329,7 @@ namespace AssetBundleShosha.Editor {
 											, path
 											);
 			}
-			result.OnBuildFinish();
+			result.OnBuildFinished();
 			return result;
 		}
 
