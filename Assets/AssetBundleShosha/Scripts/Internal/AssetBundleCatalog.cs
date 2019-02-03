@@ -21,6 +21,14 @@ namespace AssetBundleShosha.Internal {
 		}
 
 		#endregion
+		#region Public fields and properties
+
+		/// <summary>
+		/// ユーザーデータ
+		/// </summary>
+		public byte[] userData {get{return m_UserData;}}
+
+		#endregion
 		#region Public methods
 
 		/// <summary>
@@ -430,6 +438,12 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		[SerializeField]
 		private int[] m_AssetBundleCryptoHashes;
+
+		/// <summary>
+		/// ユーザーデータ
+		/// </summary>
+		[SerializeField]
+		private byte[] m_UserData;
 
 		#endregion
 		#region Private methods
