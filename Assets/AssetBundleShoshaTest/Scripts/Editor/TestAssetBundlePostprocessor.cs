@@ -6,6 +6,13 @@ namespace AssetBundleShoshaTest {
 	using UnityEditor;
 	using AssetBundleShosha.Editor;
 
+	public static class TestAssetBundleCatalogPostprocessor {
+		[AssetBundleCatalogPostprocessor(0)]
+		private static void Postprocessor(AssetBundleCatalogPostprocessorArg arg) {
+			arg.catalog.userData = new byte[]{0, 1, 2, 3, 4, 5, 6, 7};
+		}
+	}
+
 	public static class TestAssetBundlePostprocessor {
 		[AssetBundlePostprocessor(0)]
 		private static void Postprocessor(AssetBundlePostprocessorArg arg) {

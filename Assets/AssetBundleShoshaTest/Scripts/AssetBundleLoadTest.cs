@@ -51,6 +51,18 @@ namespace AssetBundleShoshaTest {
 		}
 
 		/// <summary>
+		/// カタログ内ユーザーデータ値
+		/// </summary>
+		/// <returns>コルーチン</returns>
+		[UnityTest] [Timeout(4000)]
+		public IEnumerator UserDataValueTestInCatalog() {
+			yield return SetupAssetBundleManager();
+			var assetBundleManager = AssetBundleManager.Instance;
+
+			yield return UserDataValueTestInCatalog(assetBundleManager);
+		}
+
+		/// <summary>
 		/// 単体アセットバンドル読み込み
 		/// </summary>
 		/// <returns>コルーチン</returns>

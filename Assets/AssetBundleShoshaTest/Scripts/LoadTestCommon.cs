@@ -37,6 +37,16 @@ namespace AssetBundleShoshaTest {
 		}
 
 		/// <summary>
+		/// カタログ内ユーザーデータ値
+		/// </summary>
+		/// <param name="assetBundleManager">アセットバンドルマネージャー</param>
+		/// <returns>コルーチン</returns>
+		protected IEnumerator UserDataValueTestInCatalog(AssetBundleManager assetBundleManager) {
+			Assert.AreEqual(new byte[]{0, 1, 2, 3, 4, 5, 6, 7}, assetBundleManager.catalog.userData);
+			yield break;
+		}
+
+		/// <summary>
 		/// 単体アセットバンドル読み込み
 		/// </summary>
 		/// <param name="assetBundleManager">アセットバンドルマネージャー</param>
