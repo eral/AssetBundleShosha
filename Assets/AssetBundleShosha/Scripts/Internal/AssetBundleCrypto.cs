@@ -107,6 +107,14 @@ namespace AssetBundleShosha.Internal {
 		#region Private const fields
 
 		/// <summary>
+		/// 暗号化バッファサイズ
+		/// </summary>
+		private const int kCryptoBufferSize = 16 * 1024;
+
+		#endregion
+		#region Private fields and properties
+
+		/// <summary>
 		/// Rijndael計算機
 		/// </summary>
 #if UNITY_EDITOR
@@ -116,14 +124,6 @@ namespace AssetBundleShosha.Internal {
 #endif
 		RijndaelManaged rijndael {get{return m_Rijndael;}}
 		private RijndaelManaged m_Rijndael = null;
-
-		/// <summary>
-		/// 暗号化バッファサイズ
-		/// </summary>
-		private const int kCryptoBufferSize = 16 * 1024;
-
-		#endregion
-		#region Private fields and properties
 
 		/// <summary>
 		/// 暗号化キー辞書
