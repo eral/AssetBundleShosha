@@ -86,11 +86,6 @@ namespace AssetBundleShosha.Editor {
 		private const string kPreOutputBasePath = "AssetBundleShoshaWork/Cache";
 
 		/// <summary>
-		/// 暗号化作業パス
-		/// </summary>
-		private const string kCryptoWorkBasePath = "Assets/AssetBundleShoshaWork/Crypto";
-
-		/// <summary>
 		/// 暗号化出力事前パス
 		/// </summary>
 		private const string kCryptoPreOutputBasePath = "AssetBundleShoshaWork/Crypto";
@@ -157,37 +152,22 @@ namespace AssetBundleShosha.Editor {
 				var cryptoFilePaths = filePaths.Where(x=>packerHelper.IsCustomizedCrypto(x.Key))
 												.ToArray();
 				if (0 < cryptoFilePaths.Length) {
-					manifest.hideFlags |= HideFlags.DontUnloadUnusedAsset; //BuildAssetBundlesの実行と共にインスタンスが破棄される為、破棄されない様にする
-
 					bool isNonDeterministic = (options & BuildFlags.NonDeterministicCrypto) != 0;
-					const BuildAssetBundleOptions kCryptoAssetBundleOptions = BuildAssetBundleOptions.UncompressedAssetBundle;
 					var cryptoBuilds = new[]{new AssetBundleBuild{assetNames = new[]{string.Empty}}};
-					var cryptoWorkBasePath = kCryptoWorkBasePath + "/" + platformString;
 					var cryptoPreOutputBasePath = kCryptoPreOutputBasePath + "/" + platformString;
 					CreateDirectory(cryptoPreOutputBasePath);
 					using (var crypto = new AssetBundleCryptoEditor()) {
 						foreach (var path in cryptoFilePaths) {
 							var assetBundleName = ReplaceExtension(path.Key, string.Empty);
-							var cryptoWorkPath = cryptoWorkBasePath + "/" + assetBundleName + ".bytes";
-							if (!IsSkippable(path.Value, cryptoWorkPath)) {
-								CreateDirectory(cryptoWorkPath, true);
+							var cryptoPreOutputPath = cryptoPreOutputBasePath + "/" + path.Key;
+							if (!IsSkippable(path.Value, cryptoPreOutputPath)) {
+								CreateDirectory(cryptoPreOutputPath, true);
 								var cryptoHash = packerHelper.GetCustomizedCryptoHash(path.Key);
-								crypto.Encrypt(path.Value, cryptoWorkPath, cryptoHash, isNonDeterministic);
-								AssetDatabase.ImportAsset(cryptoWorkPath, ImportAssetOptions.Default);
+								crypto.Encrypt(path.Value, cryptoPreOutputPath, cryptoHash, isNonDeterministic);
 							}
-							var abb = cryptoBuilds[0];
-							abb.assetBundleName = assetBundleName;
-							abb.assetBundleVariant = string.Empty;
-							var abbans = abb.assetNames;
-							abbans[0] = cryptoWorkPath;
-							abb.assetNames = abbans;
-							cryptoBuilds[0] = abb;
-							BuildPipeline.BuildAssetBundles(cryptoPreOutputBasePath, cryptoBuilds, kCryptoAssetBundleOptions, targetPlatform);
-							filePaths[path.Key] = cryptoPreOutputBasePath + "/" + assetBundleName;
+							filePaths[path.Key] = cryptoPreOutputPath;
 						}
 					}
-
-					manifest.hideFlags -= HideFlags.DontUnloadUnusedAsset;
 				}
 			}
 
