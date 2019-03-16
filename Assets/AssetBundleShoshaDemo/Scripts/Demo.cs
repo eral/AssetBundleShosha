@@ -146,6 +146,52 @@ namespace AssetBundleShoshaDemo {
 		}
 
 		/// <summary>
+		/// 暗号化アセットバンドル読み込み
+		/// </summary>
+		public void LoadCryptoAssetBundle() {
+			AssetBundleManager.Instance.LoadAssetBundle("AssetBundleShoshaDemo/Textures2", x=>{
+				m_CryptoAssetBundle = x;
+				UpdateStatus();
+			});
+		}
+
+		/// <summary>
+		/// 暗号化アセットバンドル破棄
+		/// </summary>
+		public void DisposeCryptoAssetBundle() {
+			if (m_CryptoAssetBundle != null) {
+				m_CryptoAssetBundle.Dispose();
+				m_CryptoAssetBundle = null;
+			}
+		}
+
+		/// <summary>
+		/// 暗号化アセットバンドルnull化
+		/// </summary>
+		public void NullifyCryptoAssetBundle() {
+			m_CryptoAssetBundle = null;
+		}
+
+		/// <summary>
+		/// 暗号化アセットバンドルからテクスチャ読み込み
+		/// </summary>
+		public void LoadTextureFromCryptoAssetBundle() {
+			if (m_CryptoAssetBundle != null) {
+				m_CryptoAssetBundle.LoadAssetAsync<Texture>("Noise7").completed += x=>{
+					var loadRequest = (IAssetBundleRequest)x;
+					m_CryptoTexture = (Texture)loadRequest.asset;
+				};
+			}
+		}
+
+		/// <summary>
+		/// テクスチャnull化
+		/// </summary>
+		public void NullifyCryptoTexture() {
+			m_CryptoTexture = null;
+		}
+
+		/// <summary>
 		/// 存在しないアセットバンドル読み込み
 		/// </summary>
 		public void LoadMissingAssetBundle() {
@@ -382,6 +428,18 @@ namespace AssetBundleShoshaDemo {
 		private Texture m_DependenciesTexture;
 
 		/// <summary>
+		/// 暗号化アセットバンドル
+		/// </summary>
+		[SerializeField][HideInInspector]
+		private IAssetBundle m_CryptoAssetBundle;
+
+		/// <summary>
+		/// 暗号化テクスチャ
+		/// </summary>
+		[SerializeField][HideInInspector]
+		private Texture m_CryptoTexture;
+
+		/// <summary>
 		/// 存在しないアセットバンドル
 		/// </summary>
 		[SerializeField][HideInInspector]
@@ -529,6 +587,20 @@ namespace AssetBundleShoshaDemo {
 			m_StatusStringBuilder.Append('\n');
 			m_StatusStringBuilder.Append("DependenciesTexture: ");
 			if (m_DependenciesTexture != null) {
+				m_StatusStringBuilder.Append("valid");
+			} else {
+				m_StatusStringBuilder.Append("null");
+			}
+			m_StatusStringBuilder.Append('\n');
+			m_StatusStringBuilder.Append("CryptoAssetBundle: ");
+			if (m_CryptoAssetBundle != null) {
+				m_StatusStringBuilder.Append("valid");
+			} else {
+				m_StatusStringBuilder.Append("null");
+			}
+			m_StatusStringBuilder.Append('\n');
+			m_StatusStringBuilder.Append("CryptoTexture: ");
+			if (m_CryptoTexture != null) {
 				m_StatusStringBuilder.Append("valid");
 			} else {
 				m_StatusStringBuilder.Append("null");
