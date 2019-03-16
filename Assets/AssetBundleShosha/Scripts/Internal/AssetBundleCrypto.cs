@@ -9,7 +9,7 @@ namespace AssetBundleShosha.Internal {
 	using System.Reflection;
 	using System.Security.Cryptography;
 
-	public class AssetBundleCrypto : System.IDisposable {
+	public static class AssetBundleCrypto {
 		#region Public types
 		#endregion
 		#region Public const fields
@@ -40,59 +40,6 @@ namespace AssetBundleShosha.Internal {
 			return result;
 		}
 
-		/// <summary>
-		/// 復号
-		/// </summary>
-		/// <param name="source">元データ</param>
-		/// <param name="cryptoHash">暗号化ハッシュ</param>
-		/// <returns>復号データ</returns>
-		/// <remarks>スレッドセーフ</remarks>
-		public byte[] Decrypt(byte[] source, int cryptoHash) {
-			byte[] result = null;
-			using (var sourceStream = new MemoryStream(source, false)) {
-				var iv = new byte[kIVSize];
-				sourceStream.Read(iv, 0, iv.Length);
-				var fileSizeBytes = new byte[sizeof(int)];
-				sourceStream.Read(fileSizeBytes, 0, fileSizeBytes.Length);
-				var fileSize = System.BitConverter.ToInt32(fileSizeBytes, 0);
-				using (var destStream = new MemoryStream(fileSize)) {
-					var key = cryptoKeys[cryptoHash]();
-					var decryptor = rijndael.CreateDecryptor(key, iv);
-					var buffer = new byte[kCryptoBufferSize];
-					using (CryptoStream cryptoStream = new CryptoStream(sourceStream, decryptor, CryptoStreamMode.Read)) {
-						while (true) {
-							var readed = cryptoStream.Read(buffer, 0, buffer.Length);
-							if (0 == readed) {
-								break;
-							}
-							destStream.Write(buffer, 0, readed);
-						}
-					}
-
-					result = destStream.GetBuffer();
-				}
-			}
-			return result;
-		}
-
-		/// <summary>
-		/// IDisposableインターフェース
-		/// </summary>
-		public void Dispose() {
-			((System.IDisposable)m_Rijndael).Dispose();
-		}
-
-		/// <summary>
-		/// コンストラクタ
-		/// </summary>
-		public AssetBundleCrypto() {
-			m_Rijndael = new RijndaelManaged();
-			m_Rijndael.BlockSize = 128;
-			m_Rijndael.KeySize = 128;
-			m_Rijndael.Mode = CipherMode.CBC;
-			m_Rijndael.Padding = PaddingMode.PKCS7;
-		}
-
 		#endregion
 		#region Internal const fields
 
@@ -102,38 +49,38 @@ namespace AssetBundleShosha.Internal {
 		internal const int kIVSize = 16;
 
 		#endregion
+		#region Internal methods
+
+		/// <summary>
+		/// 暗号化キー取得
+		/// </summary>
+		/// <param name="cryptoHash">暗号化ハッシュ</param>
+		/// <returns>暗号化キー</returns>
+		internal static byte[] GetCryptoKey(int cryptoHash) {
+			var result = cryptoKeys[cryptoHash]();
+			return result;
+		}
+
+		/// <summary>
+		/// 先頭の暗号化キー取得
+		/// </summary>
+		/// <returns>暗号化キー</returns>
+		internal static int GetFirstCryptoHash() {
+			var result = cryptoKeys.First().Key;
+			return result;
+		}
+
+		#endregion
 		#region Private types
 		#endregion
 		#region Private const fields
-
-		/// <summary>
-		/// 暗号化バッファサイズ
-		/// </summary>
-		private const int kCryptoBufferSize = 16 * 1024;
-
 		#endregion
 		#region Private fields and properties
 
 		/// <summary>
-		/// Rijndael計算機
-		/// </summary>
-#if UNITY_EDITOR
-		internal 
-#else
-		private 
-#endif
-		RijndaelManaged rijndael {get{return m_Rijndael;}}
-		private RijndaelManaged m_Rijndael = null;
-
-		/// <summary>
 		/// 暗号化キー辞書
 		/// </summary>
-#if UNITY_EDITOR
-		internal 
-#else
-		private 
-#endif
-		static Dictionary<int, System.Func<byte[]>> cryptoKeys {get{if (s_CryptoKeys == null) {s_CryptoKeys = GetCryptoKeys();} return s_CryptoKeys;}}
+		private static Dictionary<int, System.Func<byte[]>> cryptoKeys {get{if (s_CryptoKeys == null) {s_CryptoKeys = GetCryptoKeys();} return s_CryptoKeys;}}
 		private static Dictionary<int, System.Func<byte[]>> s_CryptoKeys = null;
 
 		#endregion
