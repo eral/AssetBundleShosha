@@ -13,12 +13,6 @@ namespace AssetBundleShosha.Internal {
 		#region Public types
 		#endregion
 		#region Public const fields
-
-		/// <summary>
-		/// IVサイズ
-		/// </summary>
-		public const int kIVSize = 16;
-
 		#endregion
 		#region Public fields and properties
 		#endregion
@@ -98,6 +92,14 @@ namespace AssetBundleShosha.Internal {
 			m_Rijndael.Mode = CipherMode.CBC;
 			m_Rijndael.Padding = PaddingMode.PKCS7;
 		}
+
+		#endregion
+		#region Internal const fields
+
+		/// <summary>
+		/// IVサイズ
+		/// </summary>
+		internal const int kIVSize = 16;
 
 		#endregion
 		#region Private types
