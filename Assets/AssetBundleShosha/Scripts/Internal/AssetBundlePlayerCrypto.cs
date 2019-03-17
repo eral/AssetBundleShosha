@@ -313,7 +313,7 @@ namespace AssetBundleShosha.Internal {
 				//キャッシュ無効
 				m_DownloadWork.request = new UnityWebRequest(m_DownloadWork.url
 															, UnityWebRequest.kHttpVerbGET
-															, new DownloadHandlerDeliveryStreamingAsset(m_DownloadWork.fullPath, m_DownloadWork.hash, m_DownloadWork.crc, (int)m_DownloadWork.fileSize)
+															, new DownloadHandlerDeliveryStreamingAsset(m_DownloadWork.fullPath, m_DownloadWork.hash, 0, (int)m_DownloadWork.fileSize)
 															, null
 															);
 				var sendWebRequest = m_DownloadWork.request.SendWebRequest();
@@ -354,7 +354,7 @@ namespace AssetBundleShosha.Internal {
 			var cryptoHash = AssetBundleCrypto.GetCryptoHash(manager.catalog, nameWithVariant);
 			var cryptoFile = File.Open(m_DownloadWork.fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
 			var decryptStream = new AssetBundleDecryptoStream(cryptoFile, cryptoHash);
-			m_DownloadWork.createRequest = AssetBundle.LoadFromStreamAsync(decryptStream);
+			m_DownloadWork.createRequest = AssetBundle.LoadFromStreamAsync(decryptStream, m_DownloadWork.crc);
 			yield return m_DownloadWork.createRequest;
 
 			try {
