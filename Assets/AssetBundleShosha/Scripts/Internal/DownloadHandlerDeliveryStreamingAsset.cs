@@ -62,9 +62,9 @@ namespace AssetBundleShosha.Internal {
 		/// 進捗取得
 		/// </summary>
 		protected override float GetProgress() {
-			var result = 0.5f;
-			if (0 < m_ContentLength) {
-				result = m_ReceivedLength / m_ContentLength;
+			var result = 1.0f;
+			if (m_ReceivedLength < m_ContentLength) {
+				result = (float)m_ReceivedLength / (float)m_ContentLength;
 			}
 			return result;
 		}

@@ -511,6 +511,16 @@ namespace AssetBundleShosha {
 		}
 
 		/// <summary>
+		/// 配信ストリーミングアセットキャッシュ情報削除
+		/// </summary>
+		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
+		internal void RemoveDeliveryStreamingAssetCache(string assetBundleNameWithVariant) {
+			if (m_DeliveryStreamingAssetCacheIndex.RemoveInfo(assetBundleNameWithVariant)) {
+				SaveDeliveryStreamingAssetCacheIndex();
+			}
+		}
+
+		/// <summary>
 		/// アセットバンドルのファイル名とURL取得
 		/// </summary>
 		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>

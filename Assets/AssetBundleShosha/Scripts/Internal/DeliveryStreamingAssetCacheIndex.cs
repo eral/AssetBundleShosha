@@ -87,10 +87,34 @@ namespace AssetBundleShosha.Internal {
 					m_data.infos[index].accessIndex = m_MaxAccessIndex;
 				}
 				result = m_data.infos[index];
+				result.hash = hash;
+				result.crc = crc;
+				result.fileSize = fileSize;
 			} else {
 				m_Indices.Add(assetBundleNameWithVariant, m_data.infos.Count);
 				++m_MaxAccessIndex;
 				m_data.infos.Add(new Info(assetBundleNameWithVariant, hash, crc, fileSize, m_MaxAccessIndex));
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 情報削除
+		/// </summary>
+		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
+		/// <returns>削除確認(true:削除した, false:元々無かった)</returns>
+		public bool RemoveInfo(string assetBundleNameWithVariant) {
+			var result = false;
+			int index;
+			if (m_Indices.TryGetValue(assetBundleNameWithVariant, out index)) {
+				m_data.infos.RemoveAt(index);
+				m_Indices.Remove(assetBundleNameWithVariant);
+				foreach (var IndicesKey in m_Indices.Keys) {
+					if (index < m_Indices[IndicesKey]) {
+						--m_Indices[IndicesKey];
+					}
+				}
+				result = true;
 			}
 			return result;
 		}
@@ -175,6 +199,7 @@ namespace AssetBundleShosha.Internal {
 			var data = JsonUtility.FromJson<Data>(datajson);
 			m_data = data;
 			m_MaxAccessIndex = m_data.infos.Max(x=>x.accessIndex);
+			CreateIndices();
 		}
 
 		/// <summary>
