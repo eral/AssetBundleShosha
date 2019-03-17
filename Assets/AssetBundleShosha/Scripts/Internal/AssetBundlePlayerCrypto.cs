@@ -19,7 +19,7 @@ namespace AssetBundleShosha.Internal {
 			float result;
 			if (m_DownloadWork != null) {
 				if (m_DownloadWork.createRequest != null) {
-					result = m_DownloadWork.createRequest.progress * (1.0f - kDownloadedProgress) + kDownloadedProgress;
+					result = Mathf.Lerp(kDownloadedProgress, 1.0f, m_DownloadWork.createRequest.progress);
 				} else if (m_DownloadWork.request != null) {
 					result = m_DownloadWork.request.downloadProgress * kDownloadedProgress;
 				} else {
