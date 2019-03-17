@@ -352,17 +352,34 @@ namespace AssetBundleShosha.Internal {
 			}
 
 			var cryptoHash = AssetBundleCrypto.GetCryptoHash(manager.catalog, nameWithVariant);
-			var cryptoFile = File.Open(m_DownloadWork.fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-			var decryptoStream = new AssetBundleDecryptoStream(cryptoFile, cryptoHash);
-			m_DownloadWork.createRequest = AssetBundle.LoadFromStreamAsync(decryptoStream, m_DownloadWork.crc);
-			yield return m_DownloadWork.createRequest;
-
+			FileStream cryptoFile = null;
 			try {
-				m_AssetBundle = m_DownloadWork.createRequest.assetBundle;
+				cryptoFile = File.Open(m_DownloadWork.fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
 			} catch {
-				m_ErrorCode = AssetBundleErrorCode.DecryptFailed;
+				m_ErrorCode = AssetBundleErrorCode.DecryptDataNotFound;
+			}
+			if (cryptoFile != null) {
+				var decryptoStream = new AssetBundleDecryptoStream(cryptoFile, cryptoHash);
+				m_DownloadWork.createRequest = AssetBundle.LoadFromStreamAsync(decryptoStream, m_DownloadWork.crc);
+				yield return m_DownloadWork.createRequest;
+
+				try {
+					var assetBundle = m_DownloadWork.createRequest.assetBundle;
+					if (assetBundle != null) {
+						m_AssetBundle = assetBundle;
+					} else {
+						m_ErrorCode = AssetBundleErrorCode.DecryptFailed;
+					}
+				} catch {
+					m_ErrorCode = AssetBundleErrorCode.DecryptFailed;
+				}
 			}
 			
+			if (m_ErrorCode != AssetBundleErrorCode.Null) {
+				//エラー発生
+				manager.RemoveDeliveryStreamingAssetCache(nameWithVariant);
+			}
+
 			yield return base.OnStartedOfflineProcess();
 		}
 
