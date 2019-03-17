@@ -178,6 +178,7 @@ namespace AssetBundleShosha.Internal {
 			var data = JsonUtility.FromJson<Data>(datajson);
 			m_data = data;
 			m_MaxAccessIndex = m_data.infos.Max(x=>x.accessIndex);
+			CreateIndices();
 		}
 
 		/// <summary>
