@@ -353,8 +353,8 @@ namespace AssetBundleShosha.Internal {
 
 			var cryptoHash = AssetBundleCrypto.GetCryptoHash(manager.catalog, nameWithVariant);
 			var cryptoFile = File.Open(m_DownloadWork.fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-			var decryptStream = new AssetBundleDecryptoStream(cryptoFile, cryptoHash);
-			m_DownloadWork.createRequest = AssetBundle.LoadFromStreamAsync(decryptStream, m_DownloadWork.crc);
+			var decryptoStream = new AssetBundleDecryptoStream(cryptoFile, cryptoHash);
+			m_DownloadWork.createRequest = AssetBundle.LoadFromStreamAsync(decryptoStream, m_DownloadWork.crc);
 			yield return m_DownloadWork.createRequest;
 
 			try {
