@@ -87,6 +87,9 @@ namespace AssetBundleShosha.Internal {
 					m_data.infos[index].accessIndex = m_MaxAccessIndex;
 				}
 				result = m_data.infos[index];
+				result.hash = hash;
+				result.crc = crc;
+				result.fileSize = fileSize;
 			} else {
 				m_Indices.Add(assetBundleNameWithVariant, m_data.infos.Count);
 				++m_MaxAccessIndex;
