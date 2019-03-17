@@ -145,7 +145,7 @@ namespace AssetBundleShosha.Editor {
 			var preOutputPath = kPreOutputBasePath + "/" + platformString;
 			CreateDirectory(preOutputPath);
 			var manifest = BuildPipeline.BuildAssetBundles(preOutputPath, assetBundleBuilds, kAssetBundleOptions, targetPlatform);
-			var filePaths = manifest.GetAllAssetBundles().ToDictionary(x=>x, x=>preOutputPath + "/" + x);
+			var filePaths = manifest.GetAllAssetBundles().ToDictionary(x=>x, x=>new List<string>{preOutputPath + "/" + x});
 
 			//暗号化
 			{
@@ -160,12 +160,12 @@ namespace AssetBundleShosha.Editor {
 						foreach (var path in cryptoFilePaths) {
 							var assetBundleName = ReplaceExtension(path.Key, string.Empty);
 							var cryptoPreOutputPath = cryptoPreOutputBasePath + "/" + path.Key;
-							if (!IsSkippable(path.Value, cryptoPreOutputPath)) {
+							if (!IsSkippable(path.Value.First(), cryptoPreOutputPath)) {
 								CreateDirectory(cryptoPreOutputPath, true);
 								var cryptoHash = packerHelper.GetCustomizedCryptoHash(path.Key);
-								crypto.Encrypt(path.Value, cryptoPreOutputPath, cryptoHash, isNonDeterministic);
+								crypto.Encrypt(path.Value.First(), cryptoPreOutputPath, cryptoHash, isNonDeterministic);
 							}
-							filePaths[path.Key] = cryptoPreOutputPath;
+							filePaths[path.Key].Insert(0, cryptoPreOutputPath);
 						}
 					}
 				}
@@ -177,7 +177,7 @@ namespace AssetBundleShosha.Editor {
 			var hashAlgorithm = new AssetBundleShosha.Internal.HashAlgorithm();
 			foreach (var path in filePaths) {
 				var fileName = outputPath + "/" + hashAlgorithm.GetAssetBundleFileName(platformString, path.Key);
-				CopyFileSkippable(path.Value, fileName);
+				CopyFileSkippable(path.Value.First(), fileName);
 			}
 
 			return result;
@@ -194,7 +194,7 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="filePaths">ファイルパス</param>
 		/// <param name="packerHelper">梱包呼び出しヘルパー</param>
 		/// <returns>カタログ</returns>
-		private static AssetBundleWithPathCatalog CreateAssetBundleCatalog(AssetBundleManifest manifest, Dictionary<string, string> filePaths, AssetBundlePackerHelper packerHelper) {
+		private static AssetBundleWithPathCatalog CreateAssetBundleCatalog(AssetBundleManifest manifest, Dictionary<string, List<string>> filePaths, AssetBundlePackerHelper packerHelper) {
 			var result = ScriptableObject.CreateInstance<AssetBundleWithPathCatalog>();
 			var allAssetBundles = manifest.GetAllAssetBundles();
 			System.Array.Sort(allAssetBundles);
@@ -209,21 +209,31 @@ namespace AssetBundleShosha.Editor {
 									, GetSortedAllDependencies(manifest, assetBundle)
 									, manifest.GetDirectDependencies(assetBundle)
 									);
+				var cryptoHash = packerHelper.GetCustomizedCryptoHash(assetBundle);
 				result.SetAssetBundleCryptoHash(assetBundleIndex
-											, packerHelper.GetCustomizedCryptoHash(assetBundle)
+											, cryptoHash
 											);
-				var path = filePaths[assetBundle];
-				result.SetAssetBundleHash(assetBundleIndex
-										, GetHashFromAssetBundleFile(path)
-										);
+				var deliveryPath = filePaths[assetBundle].First();
+				var originPath = filePaths[assetBundle].Last();
+				if (cryptoHash != 0) {
+					//暗号化
+					result.SetAssetBundleHash(assetBundleIndex
+											, GetHashFromDeliveryStreamingAssetFile(deliveryPath)
+											);
+				} else {
+					//平文
+					result.SetAssetBundleHash(assetBundleIndex
+											, GetHashFromAssetBundleFile(originPath)
+											);
+				}
 				result.SetAssetBundleCrc(assetBundleIndex
-										, GetCRCFromAssetBundleFile(path)
+										, GetCRCFromAssetBundleFile(originPath)
 										);
 				result.SetAssetBundleFileSize(assetBundleIndex
-											, (uint)GetFileSizeFromFile(path)
+											, (uint)GetFileSizeFromFile(deliveryPath)
 											);
 				result.SetAssetBundlePath(assetBundleIndex
-											, path
+											, deliveryPath
 											);
 			}
 			result.OnBuildFinished();
