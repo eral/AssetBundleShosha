@@ -99,6 +99,27 @@ namespace AssetBundleShosha.Internal {
 		}
 
 		/// <summary>
+		/// 情報削除
+		/// </summary>
+		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
+		/// <returns>削除確認(true:削除した, false:元々無かった)</returns>
+		public bool RemoveInfo(string assetBundleNameWithVariant) {
+			var result = false;
+			int index;
+			if (m_Indices.TryGetValue(assetBundleNameWithVariant, out index)) {
+				m_data.infos.RemoveAt(index);
+				m_Indices.Remove(assetBundleNameWithVariant);
+				foreach (var IndicesKey in m_Indices.Keys) {
+					if (index < m_Indices[IndicesKey]) {
+						--m_Indices[IndicesKey];
+					}
+				}
+				result = true;
+			}
+			return result;
+		}
+
+		/// <summary>
 		/// ハッシュ取得
 		/// </summary>
 		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
