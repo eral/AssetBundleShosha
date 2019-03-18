@@ -135,11 +135,11 @@ namespace AssetBundleShosha.Internal {
 		public AssetBundleDecryptoStream(Stream source, int cryptoHash) {
 			m_Source = source;
 			m_Rijndael = GetAES128Rijndael();
+			m_FastForwardBuffer = new byte[kFastForwardBufferSize];
 
 			var iv = new byte[AssetBundleCrypto.kIVSize];
 			source.Read(iv, 0, iv.Length);
-			var fileSizeBytes = new byte[sizeof(int)];
-			source.Read(fileSizeBytes, 0, fileSizeBytes.Length);
+			source.Read(m_FastForwardBuffer, 0, kFileSizeBytesSize);
 			var key = AssetBundleCrypto.GetCryptoKey(cryptoHash);
 
 			m_CreateDecryptoStream = ()=>{
@@ -147,8 +147,6 @@ namespace AssetBundleShosha.Internal {
 				m_Source.Position = kCryptoHeaderSize;
 				return new CryptoStream(m_Source, decryptor, CryptoStreamMode.Read);
 			};
-
-			m_FastForwardBuffer = new byte[kFastForwardBufferSize];
 
 			ResetDecryptoStream();
 		}
@@ -172,13 +170,19 @@ namespace AssetBundleShosha.Internal {
 		#region Private const fields
 
 		/// <summary>
+		/// ファイルサイズデータサイズ
+		/// </summary>
+		private const int kFileSizeBytesSize = sizeof(int);
+
+		/// <summary>
 		/// 暗号化ヘッダーサイズ
 		/// </summary>
-		private const int kCryptoHeaderSize = sizeof(byte) * AssetBundleCrypto.kIVSize + sizeof(int);
+		private const int kCryptoHeaderSize = sizeof(byte) * AssetBundleCrypto.kIVSize + kFileSizeBytesSize;
 
 		/// <summary>
 		/// 早送りバッファサイズ
 		/// </summary>
+		/// <remarks>kFileSizeBytesSize以上必須</remarks>
 		private const int kFastForwardBufferSize = 10 * 1024;
 
 		#endregion
