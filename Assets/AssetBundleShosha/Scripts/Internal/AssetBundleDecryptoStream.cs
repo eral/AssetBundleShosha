@@ -22,7 +22,7 @@ namespace AssetBundleShosha.Internal {
 				ResetDecryptoStream();
 			}
 			var offset = (int)(value - m_DecryptoStreamPosition);
-			ReadDecryptoStream(offset);
+			FastForwardDecryptoStream(offset);
 		}}
 
 		/// <summary>
@@ -148,7 +148,7 @@ namespace AssetBundleShosha.Internal {
 				return new CryptoStream(m_Source, decryptor, CryptoStreamMode.Read);
 			};
 
-			m_ReadBuffer = new byte[kReadBufferSize];
+			m_FastForwardBuffer = new byte[kFastForwardBufferSize];
 
 			ResetDecryptoStream();
 		}
@@ -177,9 +177,9 @@ namespace AssetBundleShosha.Internal {
 		private int kCryptoHeaderSize = sizeof(byte) * AssetBundleCrypto.kIVSize + sizeof(int);
 
 		/// <summary>
-		/// 読み込みバッファサイズ
+		/// 早送りバッファサイズ
 		/// </summary>
-		private int kReadBufferSize = 10 * 1024;
+		private int kFastForwardBufferSize = 10 * 1024;
 
 		#endregion
 		#region Private fields and properties
@@ -210,9 +210,9 @@ namespace AssetBundleShosha.Internal {
 		private RijndaelManaged m_Rijndael;
 
 		/// <summary>
-		/// 読み込みバッファ
+		/// 早送りバッファ
 		/// </summary>
-		private byte[] m_ReadBuffer;
+		private byte[] m_FastForwardBuffer;
 
 		#endregion
 		#region Private methods
@@ -226,14 +226,14 @@ namespace AssetBundleShosha.Internal {
 		}
 
 		/// <summary>
-		/// 復号ストリームの読み込み
+		/// 復号ストリームの早送り
 		/// </summary>
-		/// <param name="count">読み込み料</param>
-		private void ReadDecryptoStream(int count) {
+		/// <param name="count">早送り量</param>
+		private void FastForwardDecryptoStream(int count) {
 			if (0 < count) {
 				do {
-					var readSize = ((count < m_ReadBuffer.Length)? count: m_ReadBuffer.Length);
-					readSize = m_DecryptoStream.Read(m_ReadBuffer, 0, readSize);
+					var readSize = ((count < m_FastForwardBuffer.Length)? count: m_FastForwardBuffer.Length);
+					readSize = m_DecryptoStream.Read(m_FastForwardBuffer, 0, readSize);
 					if (readSize == 0) {
 						break;
 					}
