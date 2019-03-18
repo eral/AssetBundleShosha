@@ -137,10 +137,10 @@ namespace AssetBundleShosha.Internal {
 			m_Rijndael = GetAES128Rijndael();
 			m_FastForwardBuffer = new byte[kFastForwardBufferSize];
 
+			var key = AssetBundleCrypto.GetCryptoKey(cryptoHash);
 			var iv = new byte[AssetBundleCrypto.kIVSize];
 			source.Read(iv, 0, iv.Length);
 			source.Read(m_FastForwardBuffer, 0, kFileSizeBytesSize);
-			var key = AssetBundleCrypto.GetCryptoKey(cryptoHash);
 
 			m_CreateDecryptoStream = ()=>{
 				var decryptor = m_Rijndael.CreateDecryptor(key, iv);
