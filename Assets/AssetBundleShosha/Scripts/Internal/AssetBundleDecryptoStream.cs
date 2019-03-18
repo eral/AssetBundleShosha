@@ -174,12 +174,12 @@ namespace AssetBundleShosha.Internal {
 		/// <summary>
 		/// 暗号化ヘッダーサイズ
 		/// </summary>
-		private int kCryptoHeaderSize = sizeof(byte) * AssetBundleCrypto.kIVSize + sizeof(int);
+		private const int kCryptoHeaderSize = sizeof(byte) * AssetBundleCrypto.kIVSize + sizeof(int);
 
 		/// <summary>
 		/// 早送りバッファサイズ
 		/// </summary>
-		private int kFastForwardBufferSize = 10 * 1024;
+		private const int kFastForwardBufferSize = 10 * 1024;
 
 		#endregion
 		#region Private fields and properties
