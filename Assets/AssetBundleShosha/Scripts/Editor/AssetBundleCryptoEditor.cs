@@ -14,7 +14,7 @@ namespace AssetBundleShosha.Editor {
 	using HashAlgorithm = AssetBundleShosha.Internal.HashAlgorithm;
 	using AssetBundleShosha.Editor.Internal;
 
-	public class AssetBundleCryptoEditor : AssetBundleCrypto {
+	public class AssetBundleCryptoEditor : System.IDisposable {
 		#region Public types
 		#endregion
 		#region Public const fields
@@ -45,7 +45,7 @@ namespace AssetBundleShosha.Editor {
 		public int GetCryptoHash(string assetBundleNameWithVariant) {
 			var result = 0;
 			if (IsCrypto(assetBundleNameWithVariant)) {
-				result = cryptoKeys.First().Key;
+				result = AssetBundleCrypto.GetFirstCryptoHash();
 			}
 			return result;
 		}
@@ -68,7 +68,7 @@ namespace AssetBundleShosha.Editor {
 				iv = CreateRandomIV();
 			} else {
 				//決定性暗号化
-				iv = hashAlgorithm.GetHashFromFile(sourceFullPath).Take(kIVSize).ToArray();
+				iv = hashAlgorithm.GetHashFromFile(sourceFullPath).Take(AssetBundleCrypto.kIVSize).ToArray();
 			}
 
 			using (var destStream = File.Open(destFullPath, FileMode.Create, FileAccess.Write)) {
@@ -77,7 +77,7 @@ namespace AssetBundleShosha.Editor {
 					var fileSizeBytes = System.BitConverter.GetBytes((int)sourceStream.Length);
 					destStream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
 
-					var key = cryptoKeys[cryptoHash]();
+					var key = AssetBundleCrypto.GetCryptoKey(cryptoHash);
 					var encryptor = rijndael.CreateEncryptor(key, iv);
 					var buffer = cryptoBuffer;
 					using (CryptoStream cryptoStream = new CryptoStream(destStream, encryptor, CryptoStreamMode.Write)) {
@@ -96,10 +96,13 @@ namespace AssetBundleShosha.Editor {
 		/// <summary>
 		/// IDisposableインターフェース
 		/// </summary>
-		public new void Dispose() {
+		public void Dispose() {
 			m_CryptoBuffer = null;
 			m_CryptoAssetBundleNamesWithVariant = null;
-			base.Dispose();
+			if (m_Rijndael != null) {
+				((System.IDisposable)m_Rijndael).Dispose();
+				m_Rijndael = null;
+			}
 		}
 
 		/// <summary>
@@ -184,6 +187,12 @@ namespace AssetBundleShosha.Editor {
 		private HashAlgorithm hashAlgorithm {get{if (m_HashAlgorithm == null) {m_HashAlgorithm = new HashAlgorithm();} return m_HashAlgorithm;}}
 		private HashAlgorithm m_HashAlgorithm = null;
 
+		/// <summary>
+		/// Rijndael計算機
+		/// </summary>
+		private RijndaelManaged rijndael {get{if (m_Rijndael == null) {m_Rijndael = GetAES128Rijndael();} return m_Rijndael;}}
+		private RijndaelManaged m_Rijndael = null;
+
 		#endregion
 		#region Private methods
 
@@ -192,7 +201,7 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <returns>ランダムなIV</returns>
 		private static byte[] CreateRandomIV() {
-			var result = new byte[kIVSize];
+			var result = new byte[AssetBundleCrypto.kIVSize];
 			for (var i = 0; i < result.Length; ++i) {
 				result[i] = (byte)Random.Range((int)byte.MinValue, ((int)byte.MaxValue) + 1);
 			}
@@ -209,6 +218,19 @@ namespace AssetBundleShosha.Editor {
 									.Select(x=>AssetDatabase.GetImplicitAssetBundleName(x))
 									.Where(x=>!string.IsNullOrEmpty(x))
 									.ToDictionary(x=>x, y=>(object)null);
+			return result;
+		}
+
+		/// <summary>
+		/// AES128設定のRijndael取得
+		/// </summary>
+		/// <returns>Rijndael</returns>
+		private static RijndaelManaged GetAES128Rijndael() {
+			var result = new RijndaelManaged();
+			result.BlockSize = 128;
+			result.KeySize = 128;
+			result.Mode = CipherMode.CBC;
+			result.Padding = PaddingMode.PKCS7;
 			return result;
 		}
 

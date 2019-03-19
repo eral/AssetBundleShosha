@@ -4,7 +4,7 @@
 
 namespace AssetBundleShosha.Internal {
 	using System.Collections.Generic;
-	using System.Threading;
+	using System.IO;
 	using UnityEngine;
 	using UnityEngine.Networking;
 	using AssetBundleShosha.Internal;
@@ -18,7 +18,13 @@ namespace AssetBundleShosha.Internal {
 		public override float progress {get{
 			float result;
 			if (m_DownloadWork != null) {
-				result = m_DownloadWork.request.downloadProgress;
+				if (m_DownloadWork.createRequest != null) {
+					result = Mathf.Lerp(kDownloadedProgress, 1.0f, m_DownloadWork.createRequest.progress);
+				} else if (m_DownloadWork.request != null) {
+					result = m_DownloadWork.request.downloadProgress * kDownloadedProgress;
+				} else {
+					result = kDownloadedProgress;
+				}
 			} else if (m_AssetBundle == null) {
 				result = 0.0f;
 			} else {
@@ -296,31 +302,40 @@ namespace AssetBundleShosha.Internal {
 			var fileNameAndURL = manager.GetAssetBundleFileNameAndURL(nameWithVariant);
 			m_DownloadWork = new DownloadWork{
 				url = fileNameAndURL.url,
+				fullPath = manager.GetDeliveryStreamingAssetsCacheFullPath(fileNameAndURL.fileName),
 				hash = manager.catalog.GetAssetBundleHash(nameWithVariant),
-				crc = manager.catalog.GetAssetBundleCrc(nameWithVariant)
+				crc = manager.catalog.GetAssetBundleCrc(nameWithVariant),
+				fileSize = manager.catalog.GetAssetBundleFileSize(nameWithVariant)
 			};
-			m_DownloadWork.request = UnityWebRequest.GetAssetBundle(m_DownloadWork.url, m_DownloadWork.hash, m_DownloadWork.crc);
-			var sendWebRequest = m_DownloadWork.request.SendWebRequest();
-			var progress = -1.0f;
-			var startTime = Time.realtimeSinceStartup;
-			while (!sendWebRequest.isDone) {
-				yield return null;
-				if (progress != sendWebRequest.progress) {
-					//進行
-					progress = sendWebRequest.progress;
-					startTime = Time.realtimeSinceStartup;
-				} else if (manager.downloadTimeoutSeconds < (Time.realtimeSinceStartup - startTime)) {
-					//タイムアウト時間の停滞
-					break;
+
+			var hasCache = manager.HasCacheForDeliveryStreamingAsset(nameWithVariant);
+			if (!hasCache) {
+				//キャッシュ無効
+				m_DownloadWork.request = new UnityWebRequest(m_DownloadWork.url
+															, UnityWebRequest.kHttpVerbGET
+															, new DownloadHandlerDeliveryStreamingAsset(m_DownloadWork.fullPath, m_DownloadWork.hash, 0, (int)m_DownloadWork.fileSize)
+															, null
+															);
+				var sendWebRequest = m_DownloadWork.request.SendWebRequest();
+				var progress = -1.0f;
+				var startTime = Time.realtimeSinceStartup;
+				while (!sendWebRequest.isDone) {
+					yield return null;
+					if (progress != sendWebRequest.progress) {
+						//進行
+						progress = sendWebRequest.progress;
+						startTime = Time.realtimeSinceStartup;
+					} else if (manager.downloadTimeoutSeconds < (Time.realtimeSinceStartup - startTime)) {
+						//タイムアウト時間の停滞
+						break;
+					}
+				}
+
+				if (!m_DownloadWork.request.isDone || m_DownloadWork.request.isNetworkError || m_DownloadWork.request.isHttpError) {
+					AssetBundleErrorCodeUtility.TryParse(m_DownloadWork.request, out m_ErrorCode);
 				}
 			}
 
-			if (m_DownloadWork.request.isNetworkError || m_DownloadWork.request.isHttpError) {
-				AssetBundleErrorCodeUtility.TryParse(m_DownloadWork.request, out m_ErrorCode);
-			} else {
-				Caching.ClearOtherCachedVersions(fileNameAndURL.fileName, m_DownloadWork.hash);
-			}
-			
 			yield return base.OnStartedOnlineProcess();
 		}
 
@@ -329,38 +344,42 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		/// <returns>コルーチン</returns>
 		protected override System.Collections.IEnumerator OnStartedOfflineProcess() {
-			if (!m_DownloadWork.request.isNetworkError && !m_DownloadWork.request.isHttpError) {
-				var requestDownloadHandlerAssetBundle = (DownloadHandlerAssetBundle)m_DownloadWork.request.downloadHandler;
-				var assetBundle = requestDownloadHandlerAssetBundle.assetBundle;
-				var textAssets = assetBundle.LoadAllAssets<TextAsset>();
-				if (textAssets.Length != 1) {
-					assetBundle.Unload(true);
-					m_ErrorCode = AssetBundleErrorCode.DecryptDataNotFound;
-				} else {
-					var source = textAssets[0].bytes;
-					assetBundle.Unload(true);
-					var cryptoHash = AssetBundleCrypto.GetCryptoHash(manager.catalog, nameWithVariant);
-					byte[] assetBundleBytes = null;
-					var decryptThread = new Thread(()=>{
-						using (var crypto = new AssetBundleCrypto()) {
-							assetBundleBytes = crypto.Decrypt(source, cryptoHash);
-						}
-					});
-					decryptThread.Priority = System.Threading.ThreadPriority.BelowNormal;
-					decryptThread.Start();
-					m_DownloadWork.thread = decryptThread;
-					while (decryptThread.ThreadState != ThreadState.Stopped) {
-						yield return null;
-					}
-					m_DownloadWork.thread = null;
-					try {
-						m_AssetBundle = AssetBundle.LoadFromMemory(assetBundleBytes);
-					} catch {
+			if (m_DownloadWork.request != null) {
+				if (!m_DownloadWork.request.isNetworkError && !m_DownloadWork.request.isHttpError) {
+					m_DownloadWork.request.Dispose();
+					m_DownloadWork.request = null;
+				}
+			}
+
+			var cryptoHash = AssetBundleCrypto.GetCryptoHash(manager.catalog, nameWithVariant);
+			FileStream cryptoFile = null;
+			try {
+				cryptoFile = File.Open(m_DownloadWork.fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+			} catch {
+				m_ErrorCode = AssetBundleErrorCode.DecryptDataNotFound;
+			}
+			if (cryptoFile != null) {
+				var decryptoStream = new AssetBundleDecryptoStream(cryptoFile, cryptoHash);
+				m_DownloadWork.createRequest = AssetBundle.LoadFromStreamAsync(decryptoStream, m_DownloadWork.crc);
+				yield return m_DownloadWork.createRequest;
+
+				try {
+					var assetBundle = m_DownloadWork.createRequest.assetBundle;
+					if (assetBundle != null) {
+						m_AssetBundle = assetBundle;
+					} else {
 						m_ErrorCode = AssetBundleErrorCode.DecryptFailed;
 					}
+				} catch {
+					m_ErrorCode = AssetBundleErrorCode.DecryptFailed;
 				}
 			}
 			
+			if (m_ErrorCode != AssetBundleErrorCode.Null) {
+				//エラー発生
+				manager.RemoveDeliveryStreamingAssetCache(nameWithVariant);
+			}
+
 			yield return base.OnStartedOfflineProcess();
 		}
 
@@ -368,7 +387,10 @@ namespace AssetBundleShosha.Internal {
 		/// ダウンロード終了イベント
 		/// </summary>
 		protected override void OnDownloadFinished() {
-			m_DownloadWork.request.Dispose();
+			manager.SetDeliveryStreamingAssetCache(nameWithVariant, m_DownloadWork.hash, m_DownloadWork.crc, m_DownloadWork.fileSize);
+			if (m_DownloadWork.request != null) {
+				m_DownloadWork.request.Dispose();
+			}
 			m_DownloadWork = null;
 
 			base.OnDownloadFinished();
@@ -381,11 +403,6 @@ namespace AssetBundleShosha.Internal {
 			if (m_DownloadWork != null) {
 				if (m_DownloadWork.request != null) {
 					m_DownloadWork.request.Dispose();
-				}
-				if (m_DownloadWork.thread != null) {
-					if (m_DownloadWork.thread.ThreadState != ThreadState.Stopped) {
-						m_DownloadWork.thread.Abort();
-					}
 				}
 				m_DownloadWork = null;
 			}
@@ -404,12 +421,22 @@ namespace AssetBundleShosha.Internal {
 		/// ダウンロード作業領域
 		/// </summary>
 		private class DownloadWork {
+			public string fullPath;
 			public string url;
 			public Hash128 hash;
 			public uint crc;
+			public uint fileSize;
 			public UnityWebRequest request;
-			public Thread thread;
+			public AssetBundleCreateRequest createRequest;
 		}
+
+		#endregion
+		#region Private const fields
+
+		/// <summary>
+		/// ダウンロード済みの進捗率
+		/// </summary>
+		private float kDownloadedProgress = 0.75f;
 
 		#endregion
 		#region Private fields and properties

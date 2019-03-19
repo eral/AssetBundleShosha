@@ -86,11 +86,6 @@ namespace AssetBundleShosha.Editor {
 		private const string kPreOutputBasePath = "AssetBundleShoshaWork/Cache";
 
 		/// <summary>
-		/// 暗号化作業パス
-		/// </summary>
-		private const string kCryptoWorkBasePath = "Assets/AssetBundleShoshaWork/Crypto";
-
-		/// <summary>
 		/// 暗号化出力事前パス
 		/// </summary>
 		private const string kCryptoPreOutputBasePath = "AssetBundleShoshaWork/Crypto";
@@ -150,44 +145,29 @@ namespace AssetBundleShosha.Editor {
 			var preOutputPath = kPreOutputBasePath + "/" + platformString;
 			CreateDirectory(preOutputPath);
 			var manifest = BuildPipeline.BuildAssetBundles(preOutputPath, assetBundleBuilds, kAssetBundleOptions, targetPlatform);
-			var filePaths = manifest.GetAllAssetBundles().ToDictionary(x=>x, x=>preOutputPath + "/" + x);
+			var filePaths = manifest.GetAllAssetBundles().ToDictionary(x=>x, x=>new List<string>{preOutputPath + "/" + x});
 
 			//暗号化
 			{
 				var cryptoFilePaths = filePaths.Where(x=>packerHelper.IsCustomizedCrypto(x.Key))
 												.ToArray();
 				if (0 < cryptoFilePaths.Length) {
-					manifest.hideFlags |= HideFlags.DontUnloadUnusedAsset; //BuildAssetBundlesの実行と共にインスタンスが破棄される為、破棄されない様にする
-
 					bool isNonDeterministic = (options & BuildFlags.NonDeterministicCrypto) != 0;
-					const BuildAssetBundleOptions kCryptoAssetBundleOptions = BuildAssetBundleOptions.UncompressedAssetBundle;
 					var cryptoBuilds = new[]{new AssetBundleBuild{assetNames = new[]{string.Empty}}};
-					var cryptoWorkBasePath = kCryptoWorkBasePath + "/" + platformString;
 					var cryptoPreOutputBasePath = kCryptoPreOutputBasePath + "/" + platformString;
 					CreateDirectory(cryptoPreOutputBasePath);
 					using (var crypto = new AssetBundleCryptoEditor()) {
 						foreach (var path in cryptoFilePaths) {
 							var assetBundleName = ReplaceExtension(path.Key, string.Empty);
-							var cryptoWorkPath = cryptoWorkBasePath + "/" + assetBundleName + ".bytes";
-							if (!IsSkippable(path.Value, cryptoWorkPath)) {
-								CreateDirectory(cryptoWorkPath, true);
+							var cryptoPreOutputPath = cryptoPreOutputBasePath + "/" + path.Key;
+							if (!IsSkippable(path.Value.First(), cryptoPreOutputPath)) {
+								CreateDirectory(cryptoPreOutputPath, true);
 								var cryptoHash = packerHelper.GetCustomizedCryptoHash(path.Key);
-								crypto.Encrypt(path.Value, cryptoWorkPath, cryptoHash, isNonDeterministic);
-								AssetDatabase.ImportAsset(cryptoWorkPath, ImportAssetOptions.Default);
+								crypto.Encrypt(path.Value.First(), cryptoPreOutputPath, cryptoHash, isNonDeterministic);
 							}
-							var abb = cryptoBuilds[0];
-							abb.assetBundleName = assetBundleName;
-							abb.assetBundleVariant = string.Empty;
-							var abbans = abb.assetNames;
-							abbans[0] = cryptoWorkPath;
-							abb.assetNames = abbans;
-							cryptoBuilds[0] = abb;
-							BuildPipeline.BuildAssetBundles(cryptoPreOutputBasePath, cryptoBuilds, kCryptoAssetBundleOptions, targetPlatform);
-							filePaths[path.Key] = cryptoPreOutputBasePath + "/" + assetBundleName;
+							filePaths[path.Key].Insert(0, cryptoPreOutputPath);
 						}
 					}
-
-					manifest.hideFlags -= HideFlags.DontUnloadUnusedAsset;
 				}
 			}
 
@@ -197,7 +177,7 @@ namespace AssetBundleShosha.Editor {
 			var hashAlgorithm = new AssetBundleShosha.Internal.HashAlgorithm();
 			foreach (var path in filePaths) {
 				var fileName = outputPath + "/" + hashAlgorithm.GetAssetBundleFileName(platformString, path.Key);
-				CopyFileSkippable(path.Value, fileName);
+				CopyFileSkippable(path.Value.First(), fileName);
 			}
 
 			return result;
@@ -214,7 +194,7 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="filePaths">ファイルパス</param>
 		/// <param name="packerHelper">梱包呼び出しヘルパー</param>
 		/// <returns>カタログ</returns>
-		private static AssetBundleWithPathCatalog CreateAssetBundleCatalog(AssetBundleManifest manifest, Dictionary<string, string> filePaths, AssetBundlePackerHelper packerHelper) {
+		private static AssetBundleWithPathCatalog CreateAssetBundleCatalog(AssetBundleManifest manifest, Dictionary<string, List<string>> filePaths, AssetBundlePackerHelper packerHelper) {
 			var result = ScriptableObject.CreateInstance<AssetBundleWithPathCatalog>();
 			var allAssetBundles = manifest.GetAllAssetBundles();
 			System.Array.Sort(allAssetBundles);
@@ -229,21 +209,31 @@ namespace AssetBundleShosha.Editor {
 									, GetSortedAllDependencies(manifest, assetBundle)
 									, manifest.GetDirectDependencies(assetBundle)
 									);
+				var cryptoHash = packerHelper.GetCustomizedCryptoHash(assetBundle);
 				result.SetAssetBundleCryptoHash(assetBundleIndex
-											, packerHelper.GetCustomizedCryptoHash(assetBundle)
+											, cryptoHash
 											);
-				var path = filePaths[assetBundle];
-				result.SetAssetBundleHash(assetBundleIndex
-										, GetHashFromAssetBundleFile(path)
-										);
+				var deliveryPath = filePaths[assetBundle].First();
+				var originPath = filePaths[assetBundle].Last();
+				if (cryptoHash != 0) {
+					//暗号化
+					result.SetAssetBundleHash(assetBundleIndex
+											, GetHashFromDeliveryStreamingAssetFile(deliveryPath)
+											);
+				} else {
+					//平文
+					result.SetAssetBundleHash(assetBundleIndex
+											, GetHashFromAssetBundleFile(originPath)
+											);
+				}
 				result.SetAssetBundleCrc(assetBundleIndex
-										, GetCRCFromAssetBundleFile(path)
+										, GetCRCFromAssetBundleFile(originPath)
 										);
 				result.SetAssetBundleFileSize(assetBundleIndex
-											, (uint)GetFileSizeFromFile(path)
+											, (uint)GetFileSizeFromFile(deliveryPath)
 											);
 				result.SetAssetBundlePath(assetBundleIndex
-											, path
+											, deliveryPath
 											);
 			}
 			result.OnBuildFinished();
