@@ -18,6 +18,8 @@ namespace AssetBundleShosha.Editor.Internal {
 		#region Public types
 		#endregion
 		#region Public const fields
+		#endregion
+		#region Public fields and properties
 
 		/// <summary>
 		/// HTTPサーバー有効確認
@@ -42,8 +44,6 @@ namespace AssetBundleShosha.Editor.Internal {
 			}
 		}}
 
-		#endregion
-		#region Public fields and properties
 		#endregion
 		#region Public methods
 		#endregion
