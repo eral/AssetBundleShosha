@@ -14,7 +14,7 @@ namespace AssetBundleShosha.Editor.Internal {
 	using UnityEditor;
 	using AssetBundleShosha.Internal;
 
-	public class HttpServerViewer : EditorWindow {
+	public class HttpServerViewer : EditorWindow, IHasCustomMenu {
 		#region Public types
 		#endregion
 		#region Public const fields
@@ -46,6 +46,22 @@ namespace AssetBundleShosha.Editor.Internal {
 
 		#endregion
 		#region Public methods
+
+		/// <summary>
+		/// 追加メニュー
+		/// </summary>
+		/// <param name="menu">メニューコントローラ</param>
+		public void AddItemsToMenu(GenericMenu menu) {
+			//管理外サーバー終了
+			if (enable) {
+				menu.AddDisabledItem(kQuitDesyncServerContent);
+			} else {
+				menu.AddItem(kQuitDesyncServerContent, false, ()=>{
+					QuitDesyncServer();
+				});
+			}
+		}
+
 		#endregion
 		#region Protected methods
 
@@ -182,6 +198,11 @@ namespace AssetBundleShosha.Editor.Internal {
 		/// 最大帯域(bps)コンテント
 		/// </summary>
 		private static readonly GUIContent kMaxBandwidthBpsContent = new GUIContent("Max Bandwidth(bps)");
+
+		/// <summary>
+		/// 管理外サーバー終了コンテント
+		/// </summary>
+		private static readonly GUIContent kQuitDesyncServerContent = new GUIContent("Quit desync server");
 
 		#endregion
 		#region Private fields and properties
@@ -470,6 +491,19 @@ namespace AssetBundleShosha.Editor.Internal {
 		private void OnWillFinishHttpServer() {
 			m_Enable = false;
 			m_HttpServerConfigState = HttpServerConfigState.Invalid;
+		}
+
+		/// <summary>
+		/// 管理外サーバー終了
+		/// </summary>
+		private static void QuitDesyncServer() {
+			var urlSb = new StringBuilder();
+			var port = EditorPrefs.GetInt(HttpServer.kHttpServerPortEditorPrefsKey, HttpServer.kHttpServerPortDefault);
+			urlSb.Append(GetUrl(port));
+			urlSb.Append("?API=exit");
+			var url = urlSb.ToString();
+			var unityWebRequest = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET, new DownloadHandlerBuffer(), null);
+			var request = unityWebRequest.SendWebRequest();
 		}
 
 		#endregion
