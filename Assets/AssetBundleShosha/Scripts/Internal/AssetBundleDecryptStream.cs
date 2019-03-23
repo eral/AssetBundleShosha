@@ -6,7 +6,7 @@ namespace AssetBundleShosha.Internal {
 	using System.IO;
 	using System.Security.Cryptography;
 
-	public class AssetBundleDecryptoStream : Stream {
+	public class AssetBundleDecryptStream : Stream {
 		#region Public fields and properties
 
 		/// <summary>
@@ -132,7 +132,7 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		/// <param name="source">元データ</param>
 		/// <param name="cryptoHash">暗号化ハッシュ</param>
-		public AssetBundleDecryptoStream(Stream source, int cryptoHash) {
+		public AssetBundleDecryptStream(Stream source, int cryptoHash) {
 			m_Source = source;
 			m_FastForwardBuffer = new byte[kFastForwardBufferSize];
 

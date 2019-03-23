@@ -359,7 +359,7 @@ namespace AssetBundleShosha.Internal {
 				m_ErrorCode = AssetBundleErrorCode.DecryptDataNotFound;
 			}
 			if (cryptoFile != null) {
-				var decryptoStream = new AssetBundleDecryptoStream(cryptoFile, cryptoHash);
+				var decryptoStream = new AssetBundleDecryptStream(cryptoFile, cryptoHash);
 				m_DownloadWork.createRequest = AssetBundle.LoadFromStreamAsync(decryptoStream, m_DownloadWork.crc);
 				yield return m_DownloadWork.createRequest;
 
