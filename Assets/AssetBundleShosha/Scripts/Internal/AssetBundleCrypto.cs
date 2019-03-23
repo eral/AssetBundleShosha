@@ -40,6 +40,30 @@ namespace AssetBundleShosha.Internal {
 			return result;
 		}
 
+		/// <summary>
+		/// 復号ストリーム取得
+		/// </summary>
+		/// <param name="stream">ストリーム</param>
+		/// <param name="key">暗号化キー</param>
+		/// <param name="iv">初期化ベクトル</param>
+		/// <returns>復号ストリーム</returns>
+		public static Stream GetDecryptStream(Stream stream, byte[] key, byte[] iv) {
+			var decryptor = AssetBundleCrypto.rijndael.CreateDecryptor(key, iv);
+			return new CryptoStream(stream, decryptor, CryptoStreamMode.Read);
+		}
+
+		/// <summary>
+		/// 暗号化ストリーム取得
+		/// </summary>
+		/// <param name="stream">ストリーム</param>
+		/// <param name="key">暗号化キー</param>
+		/// <param name="iv">初期化ベクトル</param>
+		/// <returns>暗号化ストリーム</returns>
+		public static Stream GetEncryptStream(Stream stream, byte[] key, byte[] iv) {
+			var encryptor = AssetBundleCrypto.rijndael.CreateEncryptor(key, iv);
+			return new CryptoStream(stream, encryptor, CryptoStreamMode.Write);
+		}
+
 		#endregion
 		#region Internal const fields
 
@@ -78,6 +102,12 @@ namespace AssetBundleShosha.Internal {
 		#region Private fields and properties
 
 		/// <summary>
+		/// Rijndael計算機
+		/// </summary>
+		private static RijndaelManaged rijndael {get{if (s_Rijndael == null) {s_Rijndael = GetAES128Rijndael();} return s_Rijndael;}}
+		private static RijndaelManaged s_Rijndael = null;
+
+		/// <summary>
 		/// 暗号化キー辞書
 		/// </summary>
 		private static Dictionary<int, System.Func<byte[]>> cryptoKeys {get{if (s_CryptoKeys == null) {s_CryptoKeys = GetCryptoKeys();} return s_CryptoKeys;}}
@@ -85,6 +115,19 @@ namespace AssetBundleShosha.Internal {
 
 		#endregion
 		#region Private methods
+
+		/// <summary>
+		/// AES128設定のRijndael取得
+		/// </summary>
+		/// <returns>Rijndael</returns>
+		private static RijndaelManaged GetAES128Rijndael() {
+			var result = new RijndaelManaged();
+			result.BlockSize = 128;
+			result.KeySize = 128;
+			result.Mode = CipherMode.CBC;
+			result.Padding = PaddingMode.PKCS7;
+			return result;
+		}
 
 		/// <summary>
 		/// 暗号化キー取得

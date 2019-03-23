@@ -134,7 +134,6 @@ namespace AssetBundleShosha.Internal {
 		/// <param name="cryptoHash">暗号化ハッシュ</param>
 		public AssetBundleDecryptoStream(Stream source, int cryptoHash) {
 			m_Source = source;
-			m_Rijndael = GetAES128Rijndael();
 			m_FastForwardBuffer = new byte[kFastForwardBufferSize];
 
 			var key = AssetBundleCrypto.GetCryptoKey(cryptoHash);
@@ -143,9 +142,8 @@ namespace AssetBundleShosha.Internal {
 			source.Read(m_FastForwardBuffer, 0, kFileSizeBytesSize);
 
 			m_CreateDecryptoStream = ()=>{
-				var decryptor = m_Rijndael.CreateDecryptor(key, iv);
 				m_Source.Position = kCryptoHeaderSize;
-				return new CryptoStream(m_Source, decryptor, CryptoStreamMode.Read);
+				return AssetBundleCrypto.GetDecryptStream(m_Source, key, iv);
 			};
 
 			ResetDecryptoStream();
@@ -160,7 +158,6 @@ namespace AssetBundleShosha.Internal {
 		/// <param name="disposing">true:Dispose, false:Finalizer</param>
 		protected override void Dispose(bool disposing) {
 			m_CreateDecryptoStream = null;
-			((System.IDisposable)m_Rijndael).Dispose();
 			m_DecryptoStream.Dispose();
 			m_Source.Dispose();
 			base.Dispose(disposing);
@@ -207,11 +204,6 @@ namespace AssetBundleShosha.Internal {
 		/// 復号ストリーム作成
 		/// </summary>
 		private System.Func<Stream> m_CreateDecryptoStream;
-
-		/// <summary>
-		/// Rijndael
-		/// </summary>
-		private RijndaelManaged m_Rijndael;
 
 		/// <summary>
 		/// 早送りバッファ

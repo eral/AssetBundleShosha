@@ -77,16 +77,15 @@ namespace AssetBundleShosha.Editor {
 					var fileSizeBytes = System.BitConverter.GetBytes((int)sourceStream.Length);
 					destStream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
 
-					var key = AssetBundleCrypto.GetCryptoKey(cryptoHash);
-					var encryptor = rijndael.CreateEncryptor(key, iv);
 					var buffer = cryptoBuffer;
-					using (CryptoStream cryptoStream = new CryptoStream(destStream, encryptor, CryptoStreamMode.Write)) {
+					var key = AssetBundleCrypto.GetCryptoKey(cryptoHash);
+					using (var encryptStream = AssetBundleCrypto.GetEncryptStream(destStream, key, iv)) {
 						while (true) {
 							var readed = sourceStream.Read(buffer, 0, buffer.Length);
 							if (0 == readed) {
 								break;
 							}
-							cryptoStream.Write(buffer, 0, readed);
+							encryptStream.Write(buffer, 0, readed);
 						}
 					}
 				}
@@ -99,10 +98,6 @@ namespace AssetBundleShosha.Editor {
 		public void Dispose() {
 			m_CryptoBuffer = null;
 			m_CryptoAssetBundleNamesWithVariant = null;
-			if (m_Rijndael != null) {
-				((System.IDisposable)m_Rijndael).Dispose();
-				m_Rijndael = null;
-			}
 		}
 
 		/// <summary>
@@ -187,12 +182,6 @@ namespace AssetBundleShosha.Editor {
 		private HashAlgorithm hashAlgorithm {get{if (m_HashAlgorithm == null) {m_HashAlgorithm = new HashAlgorithm();} return m_HashAlgorithm;}}
 		private HashAlgorithm m_HashAlgorithm = null;
 
-		/// <summary>
-		/// Rijndael計算機
-		/// </summary>
-		private RijndaelManaged rijndael {get{if (m_Rijndael == null) {m_Rijndael = GetAES128Rijndael();} return m_Rijndael;}}
-		private RijndaelManaged m_Rijndael = null;
-
 		#endregion
 		#region Private methods
 
@@ -218,19 +207,6 @@ namespace AssetBundleShosha.Editor {
 									.Select(x=>AssetDatabase.GetImplicitAssetBundleName(x))
 									.Where(x=>!string.IsNullOrEmpty(x))
 									.ToDictionary(x=>x, y=>(object)null);
-			return result;
-		}
-
-		/// <summary>
-		/// AES128設定のRijndael取得
-		/// </summary>
-		/// <returns>Rijndael</returns>
-		private static RijndaelManaged GetAES128Rijndael() {
-			var result = new RijndaelManaged();
-			result.BlockSize = 128;
-			result.KeySize = 128;
-			result.Mode = CipherMode.CBC;
-			result.Padding = PaddingMode.PKCS7;
 			return result;
 		}
 
