@@ -183,10 +183,6 @@ namespace AssetBundleShosha.Editor {
 			return result;
 		}
 
-		private static AssetBundlePackerArg SetPackerArg(string assetBundleName, AssetBundlePackerArg packerArg) {
-			return packerArg;
-		}
-
 		/// <summary>
 		/// アセットバンドル用カタログ構築
 		/// </summary>
