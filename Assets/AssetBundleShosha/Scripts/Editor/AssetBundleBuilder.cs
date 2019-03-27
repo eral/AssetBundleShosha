@@ -23,9 +23,10 @@ namespace AssetBundleShosha.Editor {
 		public enum BuildFlags {
 			Null										= 0,
 			OutputDetailJson							= 1 << 0,	//詳細JSONを出力する
-			SkipFileDeploymentOfDeliveryStreamingAssets	= 1 << 1,	//配信ストリーミングアセットのファイルデプロイを省略する
-			ForceCrypto									= 1 << 2,	//強制暗号化
-			NonDeterministicCrypto						= 1 << 3,	//非決定性暗号化
+			ForceRebuild								= 1 << 1,	//強制再ビルド
+			SkipFileDeploymentOfDeliveryStreamingAssets	= 1 << 2,	//配信ストリーミングアセットのファイルデプロイを省略する
+			ForceCrypto									= 1 << 3,	//強制暗号化
+			NonDeterministicCrypto						= 1 << 4,	//非決定性暗号化
 		}
 
 		#endregion
@@ -61,7 +62,7 @@ namespace AssetBundleShosha.Editor {
 
 			var packerHelper = new AssetBundlePackerHelper();
 			var assetBundlesCatalog = BuildAssetBundles(kOutputPath, targetPlatform, packerHelper, options);
-			var deliveryStreamingAssetsCatalog = BuildDeliveryStreamingAssets(kOutputPath, packerHelper);
+			var deliveryStreamingAssetsCatalog = BuildDeliveryStreamingAssets(kOutputPath, packerHelper, options);
 			MergeAssetBundleCatalog(ref catalog, assetBundlesCatalog, deliveryStreamingAssetsCatalog);
 
 			if (!catalogAlreadyDontUnloadUnusedAsset) {
@@ -139,12 +140,15 @@ namespace AssetBundleShosha.Editor {
 												.Where(x=>!string.IsNullOrEmpty(x.assetBundleName))
 												.ToArray();
 
-			const BuildAssetBundleOptions kAssetBundleOptions = BuildAssetBundleOptions.ChunkBasedCompression;
+			BuildAssetBundleOptions assetBundleOptions = BuildAssetBundleOptions.ChunkBasedCompression;
+			if ((options & BuildFlags.ForceRebuild) != 0) {
+				assetBundleOptions |= BuildAssetBundleOptions.ForceRebuildAssetBundle;
+			}
 
 			var platformString = AssetBundleEditorUtility.GetPlatformString(targetPlatform);
 			var preOutputPath = kPreOutputBasePath + "/" + platformString;
 			CreateDirectory(preOutputPath);
-			var manifest = BuildPipeline.BuildAssetBundles(preOutputPath, assetBundleBuilds, kAssetBundleOptions, targetPlatform);
+			var manifest = BuildPipeline.BuildAssetBundles(preOutputPath, assetBundleBuilds, assetBundleOptions, targetPlatform);
 			var filePaths = manifest.GetAllAssetBundles().ToDictionary(x=>x, x=>new List<string>{preOutputPath + "/" + x});
 
 			//暗号化
@@ -241,8 +245,9 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="outputPath">出力パス</param>
 		/// <param name="packerHelper">梱包呼び出しヘルパー</param>
+		/// <param name="options">ビルドオプション</param>
 		/// <returns>カタログ</returns>
-		private static AssetBundleWithPathCatalog BuildDeliveryStreamingAssets(string outputPath, AssetBundlePackerHelper packerHelper) {
+		private static AssetBundleWithPathCatalog BuildDeliveryStreamingAssets(string outputPath, AssetBundlePackerHelper packerHelper, BuildFlags options) {
 			var allDeliveryStreamingAssetInfos = AssetBundleUtility.GetAllDeliveryStreamingAssetInfos()
 																	.Select(x=>packerHelper.PackDeliveryStreamingAsset(x))
 																	.Where(x=>!string.IsNullOrEmpty(x.deliveryStreamingAssetNameWithVariant))
@@ -252,6 +257,7 @@ namespace AssetBundleShosha.Editor {
 
 			if (!AssetBundleEditorUtility.buildOptionSkipFileDeploymentOfDeliveryStreamingAssets) {
 				CreateDirectory(outputPath);
+				var isForceRebuild = (options & BuildFlags.ForceRebuild) != 0;
 				var hashAlgorithm = new AssetBundleShosha.Internal.HashAlgorithm();
 				foreach (var deliveryStreamingAssetInfo in allDeliveryStreamingAssetInfos) {
 					var destPath = outputPath + "/" + hashAlgorithm.GetAssetBundleFileName(null, deliveryStreamingAssetInfo.deliveryStreamingAssetNameWithVariant);
@@ -259,7 +265,7 @@ namespace AssetBundleShosha.Editor {
 						//0バイト配信ストリーミングアセット
 						var isDestAssetExists = File.Exists(destPath);
 						if (isDestAssetExists) {
-							if (GetFileSizeFromFile(destPath) != 0) {
+							if (isForceRebuild || (GetFileSizeFromFile(destPath) != 0)) {
 								File.Delete(destPath);
 								isDestAssetExists = false;
 							}
@@ -267,7 +273,11 @@ namespace AssetBundleShosha.Editor {
 						if (!isDestAssetExists) {
 							CreateEmptyAsset(destPath);
 						}
+					} else if (isForceRebuild) {
+						//配信ストリーミングアセット・強制再ビルド
+						FileUtil.ReplaceFile(deliveryStreamingAssetInfo.path, destPath);
 					} else {
+						//配信ストリーミングアセット・スキップ化
 						CopyFileSkippable(deliveryStreamingAssetInfo.path, destPath);
 					}
 				}
