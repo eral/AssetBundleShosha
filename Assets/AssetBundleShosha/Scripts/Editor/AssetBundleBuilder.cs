@@ -157,12 +157,10 @@ namespace AssetBundleShosha.Editor {
 												.ToArray();
 				if (0 < cryptoFilePaths.Length) {
 					bool isNonDeterministic = (options & BuildFlags.NonDeterministicCrypto) != 0;
-					var cryptoBuilds = new[]{new AssetBundleBuild{assetNames = new[]{string.Empty}}};
 					var cryptoPreOutputBasePath = kCryptoPreOutputBasePath + "/" + platformString;
 					CreateDirectory(cryptoPreOutputBasePath);
 					using (var crypto = new AssetBundleCryptoEditor()) {
 						foreach (var path in cryptoFilePaths) {
-							var assetBundleName = ReplaceExtension(path.Key, string.Empty);
 							var cryptoPreOutputPath = cryptoPreOutputBasePath + "/" + path.Key;
 							if (!IsSkippable(path.Value.First(), cryptoPreOutputPath)) {
 								CreateDirectory(cryptoPreOutputPath, true);
