@@ -503,7 +503,7 @@ namespace AssetBundleShosha.Editor.Internal {
 			urlSb.Append("?API=exit");
 			var url = urlSb.ToString();
 			var unityWebRequest = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET, new DownloadHandlerBuffer(), null);
-			var request = unityWebRequest.SendWebRequest();
+			unityWebRequest.SendWebRequest();
 		}
 
 		#endregion
