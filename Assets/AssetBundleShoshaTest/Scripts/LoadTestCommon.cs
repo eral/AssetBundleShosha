@@ -222,6 +222,7 @@ namespace AssetBundleShoshaTest {
 			yield return assetBundle;
 			Assert.IsTrue(isloaded);
 			Assert.IsTrue(errorCode.HasValue);
+			Assert.AreNotEqual(AssetBundleErrorCode.Null, assetBundle.errorCode);
 
 			assetBundle.Dispose();
 
@@ -239,6 +240,7 @@ namespace AssetBundleShoshaTest {
 			Assert.IsTrue(assetBundle != null);
 			yield return assetBundle;
 			Assert.IsTrue(isloaded);
+			Assert.AreEqual(AssetBundleErrorCode.Null, assetBundle.errorCode);
 
 			Assert.IsTrue(assetBundle.Contains("Exclude"));
 			var allAssetNames = assetBundle.GetAllAssetNames();
