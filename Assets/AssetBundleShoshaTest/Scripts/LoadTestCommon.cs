@@ -236,7 +236,7 @@ namespace AssetBundleShoshaTest {
 		/// <returns>コルーチン</returns>
 		protected IEnumerator LoadIndirectExcludeAssetBundle(AssetBundleManager assetBundleManager) {
 			var isloaded = false;
-			var assetBundle = assetBundleManager.LoadAssetBundle("AssetBundleShoshaTest/IndirectExcldeMatrials", x=>isloaded = true);
+			var assetBundle = assetBundleManager.LoadAssetBundle("AssetBundleShoshaTest/IndirectExcludeMaterials", x=>isloaded = true);
 			Assert.IsTrue(assetBundle != null);
 			yield return assetBundle;
 			Assert.IsTrue(isloaded);
