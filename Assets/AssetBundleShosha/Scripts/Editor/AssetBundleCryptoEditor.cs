@@ -182,6 +182,12 @@ namespace AssetBundleShosha.Editor {
 		private HashAlgorithm hashAlgorithm {get{if (m_HashAlgorithm == null) {m_HashAlgorithm = new HashAlgorithm();} return m_HashAlgorithm;}}
 		private HashAlgorithm m_HashAlgorithm = null;
 
+		/// <summary>
+		/// 暗号乱数ジェネレーター
+		/// </summary>
+		private RNGCryptoServiceProvider rngCryptoServiceProvider {get{if (m_RNGCryptoServiceProvider == null) {m_RNGCryptoServiceProvider = new RNGCryptoServiceProvider();} return m_RNGCryptoServiceProvider;}}
+		private RNGCryptoServiceProvider m_RNGCryptoServiceProvider = null;
+
 		#endregion
 		#region Private methods
 
@@ -189,11 +195,9 @@ namespace AssetBundleShosha.Editor {
 		/// ランダムなIVの作成
 		/// </summary>
 		/// <returns>ランダムなIV</returns>
-		private static byte[] CreateRandomIV() {
+		private byte[] CreateRandomIV() {
 			var result = new byte[AssetBundleCrypto.kIVSize];
-			for (var i = 0; i < result.Length; ++i) {
-				result[i] = (byte)Random.Range((int)byte.MinValue, ((int)byte.MaxValue) + 1);
-			}
+			rngCryptoServiceProvider.GetBytes(result);
 			return result;
 		}
 

@@ -29,6 +29,17 @@ namespace AssetBundleShosha {
 
 		#endregion
 		#region Public const fields
+
+		/// <summary>
+		/// 初期ダウンロードタイムアウト秒
+		/// </summary>
+		public const int kDownloadTimeoutSecondsDefault = 30;
+
+		/// <summary>
+		/// 初期並列ダウンロード数
+		/// </summary>
+		public const int kParallelDownloadsCountDefault = 2;
+
 		#endregion
 		#region Public fields and properties
 
@@ -205,11 +216,13 @@ namespace AssetBundleShosha {
 			var result = HasCacheFromAssetBundleNameWithVariant(assetBundleNameWithVariant);
 			if (result) {
 				var allDependencies = GetAllDependencies(assetBundleName);
-				foreach (var dependency in allDependencies) {
-					var dependencyAssetBundleNameWithVariant = ApplyVariant(dependency);
-					result = HasCacheFromAssetBundleNameWithVariant(dependencyAssetBundleNameWithVariant);
-					if (!result) {
-						break;
+				if (allDependencies != null) {
+					foreach (var dependency in allDependencies) {
+						var dependencyAssetBundleNameWithVariant = ApplyVariant(dependency);
+						result = HasCacheFromAssetBundleNameWithVariant(dependencyAssetBundleNameWithVariant);
+						if (!result) {
+							break;
+						}
 					}
 				}
 			}
@@ -252,9 +265,11 @@ namespace AssetBundleShosha {
 			var assetBundleNameWithVariant = ApplyVariant(assetBundleName);
 			var result = GetDownloadSizeFromAssetBundleNameWithVariant(assetBundleNameWithVariant);
 			var allDependencies = GetAllDependencies(assetBundleName);
-			foreach (var dependency in allDependencies) {
-				var dependencyAssetBundleNameWithVariant = ApplyVariant(dependency);
-				result += GetDownloadSizeFromAssetBundleNameWithVariant(dependencyAssetBundleNameWithVariant);
+			if (allDependencies != null) {
+				foreach (var dependency in allDependencies) {
+					var dependencyAssetBundleNameWithVariant = ApplyVariant(dependency);
+					result += GetDownloadSizeFromAssetBundleNameWithVariant(dependencyAssetBundleNameWithVariant);
+				}
 			}
 			return result;
 		}
@@ -268,7 +283,9 @@ namespace AssetBundleShosha {
 				var assetBundleName = assetBundleNameCaseInsensitive.ToLower();
 				allAssetBundleNamesMultiple.Add(assetBundleName);
 				var allDependencies = GetAllDependencies(assetBundleName);
-				allAssetBundleNamesMultiple.AddRange(allDependencies);
+				if (allDependencies != null) {
+					allAssetBundleNamesMultiple.AddRange(allDependencies);
+				}
 			}
 			//重複除去とバリアント適用
 			allAssetBundleNamesMultiple.Sort(); //重複除去用ソート
@@ -632,13 +649,13 @@ namespace AssetBundleShosha {
 		/// ダウンロードタイムアウト秒
 		/// </summary>
 		[SerializeField]
-		private int m_DownloadTimeoutSeconds = 30;
+		private int m_DownloadTimeoutSeconds = kDownloadTimeoutSecondsDefault;
 
 		/// <summary>
 		/// 並列ダウンロード数
 		/// </summary>
 		[SerializeField]
-		private int m_ParallelDownloadsCount = 2;
+		private int m_ParallelDownloadsCount = kParallelDownloadsCountDefault;
 
 		/// <summary>
 		/// 進捗レシーバー
@@ -923,8 +940,10 @@ namespace AssetBundleShosha {
 
 			if (loadDependencies) {
 				var allDependencies = GetAllDependencies(assetBundleName);
-				foreach (var dependence in allDependencies) {
-					LoadAssetBundleWithDependencies(dependence, null, false);
+				if (allDependencies != null) {
+					foreach (var dependence in allDependencies) {
+						LoadAssetBundleWithDependencies(dependence, null, false);
+					}
 				}
 			}
 
@@ -972,6 +991,7 @@ namespace AssetBundleShosha {
 		/// </summary>
 		/// <param name="assetBundleName">アセットバンドル名</param>
 		/// <returns>間接含む全依存関係</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合はnullを返す</remarks>
 		private string[] GetAllDependencies(string assetBundleName) {
 			var assetBundleNameWithVariant = ApplyVariant(assetBundleName);
 			var result = catalog.GetAllDependencies(assetBundleNameWithVariant);
@@ -1162,11 +1182,13 @@ namespace AssetBundleShosha {
 
 				if (unloadDependencies) {
 					var allDependencies = GetAllDependencies(assetBundleName);
-					for (int i = allDependencies.Length - 1; 0 <= i; --i) {
-						var dependence = allDependencies[i];
-						AssetBundleBase dependenceAssetBundle;
-						if (m_Downloaded.TryGetValue(dependence, out dependenceAssetBundle)) {
-							UnloadAssetBundleWithDependencies(dependenceAssetBundle, false);
+					if (allDependencies != null) {
+						for (int i = allDependencies.Length - 1; 0 <= i; --i) {
+							var dependence = allDependencies[i];
+							AssetBundleBase dependenceAssetBundle;
+							if (m_Downloaded.TryGetValue(dependence, out dependenceAssetBundle)) {
+								UnloadAssetBundleWithDependencies(dependenceAssetBundle, false);
+							}
 						}
 					}
 				}

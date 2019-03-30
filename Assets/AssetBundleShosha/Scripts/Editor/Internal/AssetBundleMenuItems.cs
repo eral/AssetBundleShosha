@@ -75,6 +75,20 @@ namespace AssetBundleShosha.Editor.Internal {
 		}
 
 		/// <summary>
+		/// アセットバンドル作成オプション・強制再ビルド
+		/// </summary>
+		[MenuItem("Assets/AssetBundles/Build AssetBundles/Options/Force Rebuild", false, 32015)]
+		public static void BuildOptionsForceRebuild() {
+			AssetBundleEditorUtility.buildOptionForceRebuild = !AssetBundleEditorUtility.buildOptionForceRebuild;
+		}
+		[MenuItem("Assets/AssetBundles/Build AssetBundles/Options/Force Rebuild", true)]
+		public static bool BuildOptionsForceRebuildValidate() {
+			var isChecked = AssetBundleEditorUtility.buildOptionForceRebuild;
+			Menu.SetChecked("Assets/AssetBundles/Build AssetBundles/Options/Force Rebuild", isChecked);
+			return true;
+		}
+
+		/// <summary>
 		/// アセットバンドル作成オプション・配信ストリーミングアセットのファイルデプロイを省略する
 		/// </summary>
 		[MenuItem("Assets/AssetBundles/Build AssetBundles/Options/Skip file deployment of Delivery Streaming Assets", false, 32020)]

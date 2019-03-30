@@ -20,6 +20,11 @@ namespace AssetBundleShosha.Editor {
 		private const string kBuildOptionOutputDetailJsonEditorPrefsKey = "AssetBundleShosha/BuildOption/OutputDetailJson";
 
 		/// <summary>
+		/// ForceRebuildビルドオプションのEditorPrefsキー
+		/// </summary>
+		private const string kBuildOptionForceRebuildEditorPrefsKey = "AssetBundleShosha/BuildOption/ForceRebuild";
+
+		/// <summary>
 		/// SkipFileDeploymentOfDeliveryStreamingAssetsビルドオプションのEditorPrefsキー
 		/// </summary>
 		private const string kBuildOptionSkipFileDeploymentOfDeliveryStreamingAssetsEditorPrefsKey = "AssetBundleShosha/BuildOption/SkipFileDeploymentOfDeliveryStreamingAssets";
@@ -50,6 +55,22 @@ namespace AssetBundleShosha.Editor {
 			if (s_BuildOptionOutputDetailJson != intValue) {
 				s_BuildOptionOutputDetailJson = intValue;
 				EditorPrefs.SetBool(kBuildOptionOutputDetailJsonEditorPrefsKey, value);
+			}
+		}}
+
+		/// <summary>
+		/// ForceRebuildビルドオプション
+		/// </summary>
+		public static bool buildOptionForceRebuild {get{
+			if (s_BuildOptionForceRebuild == -1) {
+				s_BuildOptionForceRebuild = EditorPrefs.GetBool(kBuildOptionForceRebuildEditorPrefsKey, false)? 1: 0;
+			}
+			return s_BuildOptionForceRebuild != 0;
+		} set{
+			var intValue = value? 1: 0;
+			if (s_BuildOptionForceRebuild != intValue) {
+				s_BuildOptionForceRebuild = intValue;
+				EditorPrefs.SetBool(kBuildOptionForceRebuildEditorPrefsKey, value);
 			}
 		}}
 
@@ -163,6 +184,9 @@ namespace AssetBundleShosha.Editor {
 			if (AssetBundleEditorUtility.buildOptionOutputDetailJson) {
 				result |= AssetBundleBuilder.BuildFlags.OutputDetailJson;
 			}
+			if (AssetBundleEditorUtility.buildOptionForceRebuild) {
+				result |= AssetBundleBuilder.BuildFlags.ForceRebuild;
+			}
 			if (AssetBundleEditorUtility.buildOptionSkipFileDeploymentOfDeliveryStreamingAssets) {
 				result |= AssetBundleBuilder.BuildFlags.SkipFileDeploymentOfDeliveryStreamingAssets;
 			}
@@ -231,6 +255,11 @@ namespace AssetBundleShosha.Editor {
 		/// OutputDetailJsonビルドオプション
 		/// </summary>
 		private static int s_BuildOptionOutputDetailJson = -1;
+
+		/// <summary>
+		/// ForceRebuildビルドオプション
+		/// </summary>
+		private static int s_BuildOptionForceRebuild = -1;
 
 		/// <summary>
 		/// SkipFileDeploymentOfDeliveryStreamingAssetsビルドオプション

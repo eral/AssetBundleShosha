@@ -78,6 +78,7 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
 		/// <returns>バリアント情報</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合はnullを返す</remarks>
 		public AssetBundleCatalog.VariantInfo[] GetAssetBundleVariantInfos(string assetBundleNameWithVariant) {
 			assetBundleNameWithVariant = assetBundleNameWithVariant.ToLower();
 			return m_Catalog.GetAssetBundleVariantInfos(assetBundleNameWithVariant);
@@ -88,6 +89,7 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
 		/// <returns>間接含む全依存関係</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合はnullを返す</remarks>
 		public string[] GetAllDependencies(string assetBundleNameWithVariant) {
 			assetBundleNameWithVariant = assetBundleNameWithVariant.ToLower();
 			return m_Catalog.GetAllDependencies(assetBundleNameWithVariant);
@@ -98,6 +100,7 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
 		/// <returns>直接依存関係</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合はnullを返す</remarks>
 		public string[] GetDirectDependencies(string assetBundleNameWithVariant) {
 			assetBundleNameWithVariant = assetBundleNameWithVariant.ToLower();
 			return m_Catalog.GetDirectDependencies(assetBundleNameWithVariant);
@@ -108,6 +111,7 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
 		/// <returns>ハッシュ</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合は空ハッシュを返す</remarks>
 		public Hash128 GetAssetBundleHash(string assetBundleNameWithVariant) {
 			assetBundleNameWithVariant = assetBundleNameWithVariant.ToLower();
 			return m_Catalog.GetAssetBundleHash(assetBundleNameWithVariant);
@@ -118,6 +122,7 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
 		/// <returns>CRC</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合は0を返す</remarks>
 		public uint GetAssetBundleCrc(string assetBundleNameWithVariant) {
 			assetBundleNameWithVariant = assetBundleNameWithVariant.ToLower();
 			return m_Catalog.GetAssetBundleCrc(assetBundleNameWithVariant);
@@ -128,6 +133,7 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
 		/// <returns>ファイルサイズ</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合は0を返す</remarks>
 		public uint GetAssetBundleFileSize(string assetBundleNameWithVariant) {
 			assetBundleNameWithVariant = assetBundleNameWithVariant.ToLower();
 			return m_Catalog.GetAssetBundleFileSize(assetBundleNameWithVariant);
@@ -138,6 +144,7 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
 		/// <returns>暗号化ハッシュ</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合は0を返す</remarks>
 		public int GetAssetBundleCryptoHash(string assetBundleNameWithVariant) {
 			assetBundleNameWithVariant = assetBundleNameWithVariant.ToLower();
 			return m_Catalog.GetAssetBundleCryptoHash(assetBundleNameWithVariant);
