@@ -206,6 +206,81 @@ namespace AssetBundleShoshaTest {
 		}
 
 		/// <summary>
+		/// 直接参照系除外アセットバンドル読み込み
+		/// </summary>
+		/// <param name="assetBundleManager">アセットバンドルマネージャー</param>
+		/// <returns>コルーチン</returns>
+		protected IEnumerator LoadDirectExcludeAssetBundle(AssetBundleManager assetBundleManager) {
+			var downloadTimeoutSecondsOld = assetBundleManager.downloadTimeoutSeconds;
+			assetBundleManager.downloadTimeoutSeconds = 4;
+
+			var isloaded = false;
+			AssetBundleErrorCode? errorCode = null;
+			var assetBundle = assetBundleManager.LoadAssetBundle("AssetBundleShoshaTest/ExcldeMatrials", x=>isloaded = true);
+			assetBundle.errorHandler = new ErrorAction(x=>errorCode = x.errorCode);
+			Assert.IsTrue(assetBundle != null);
+			yield return assetBundle;
+			Assert.IsTrue(isloaded);
+			Assert.IsTrue(errorCode.HasValue);
+
+			assetBundle.Dispose();
+
+			yield break;
+		}
+
+		/// <summary>
+		/// 間接参照系除外アセットバンドル読み込み
+		/// </summary>
+		/// <param name="assetBundleManager">アセットバンドルマネージャー</param>
+		/// <returns>コルーチン</returns>
+		protected IEnumerator LoadIndirectExcludeAssetBundle(AssetBundleManager assetBundleManager) {
+			var isloaded = false;
+			var assetBundle = assetBundleManager.LoadAssetBundle("AssetBundleShoshaTest/IndirectExcldeMatrials", x=>isloaded = true);
+			Assert.IsTrue(assetBundle != null);
+			yield return assetBundle;
+			Assert.IsTrue(isloaded);
+
+			Assert.IsTrue(assetBundle.Contains("Exclude"));
+			var allAssetNames = assetBundle.GetAllAssetNames();
+			Assert.IsTrue(allAssetNames != null);
+			Assert.AreEqual(1, allAssetNames.Length);
+			Assert.AreEqual("assets/assetbundleshoshatest/materials/indirectexcludematerials/exclude.mat", allAssetNames[0]);
+			var allScenePaths = assetBundle.GetAllScenePaths();
+			Assert.IsTrue(allScenePaths != null);
+			Assert.AreEqual(0, allScenePaths.Length);
+
+			IAssetBundleRequest assetBundleRequest;
+
+			isloaded = false;
+			assetBundleRequest = null;
+			Assert.DoesNotThrow(()=>{
+				assetBundleRequest = assetBundle.LoadAssetAsync<Material>("Exclude");
+			});
+			Assert.IsTrue(assetBundleRequest != null);
+			assetBundleRequest.completed += x=>{
+				isloaded = true;
+			};
+			yield return assetBundleRequest;
+			for (var i = 0; i < 2; ++i) {
+				if (isloaded) {
+					break;
+				}
+				yield return null; //コルーチンを抜けてからcompletedが呼ばれる迄に2f掛かる
+			}
+			Assert.IsTrue(isloaded);
+			Assert.IsTrue(assetBundleRequest.asset != null);
+			Assert.IsTrue(assetBundleRequest.allAssets != null);
+			Assert.AreEqual(1, assetBundleRequest.allAssets.Length);
+
+			var material = (Material)assetBundleRequest.asset;
+			Assert.IsTrue(material.mainTexture == null);
+
+			assetBundle.Dispose();
+
+			yield break;
+		}
+
+		/// <summary>
 		/// 配信ストリーミングアセット読み込み
 		/// </summary>
 		/// <param name="assetBundleManager">アセットバンドルマネージャー</param>
@@ -644,6 +719,8 @@ namespace AssetBundleShoshaTest {
 				yield return InitializeAssetBundleManager();
 			} else {
 				var assetBundleManager = AssetBundleManager.Instance;
+				assetBundleManager.downloadTimeoutSeconds = AssetBundleManager.kDownloadTimeoutSecondsDefault;
+				assetBundleManager.parallelDownloadsCount = AssetBundleManager.kParallelDownloadsCountDefault;
 				assetBundleManager.SetVariants(null);
 			}
 		}
