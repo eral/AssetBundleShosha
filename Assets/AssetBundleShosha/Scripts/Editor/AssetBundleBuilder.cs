@@ -140,7 +140,7 @@ namespace AssetBundleShosha.Editor {
 												.Where(x=>!string.IsNullOrEmpty(x.assetBundleName))
 												.ToArray();
 
-			BuildAssetBundleOptions assetBundleOptions = BuildAssetBundleOptions.ChunkBasedCompression;
+			var assetBundleOptions = BuildAssetBundleOptions.ChunkBasedCompression;
 			if ((options & BuildFlags.ForceRebuild) != 0) {
 				assetBundleOptions |= BuildAssetBundleOptions.ForceRebuildAssetBundle;
 			}
