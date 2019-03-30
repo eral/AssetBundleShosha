@@ -69,6 +69,7 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		/// <param name="assetBundleName">アセットバンドル名</param>
 		/// <returns>バリアント情報</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合はnullを返す</remarks>
 		public VariantInfo[] GetAssetBundleVariantInfos(string assetBundleName) {
 			VariantInfo[] result;
 			if (m_VariantsCache == null) {

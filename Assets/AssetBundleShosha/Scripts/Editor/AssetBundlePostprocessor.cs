@@ -78,6 +78,7 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
 		/// <returns>バリアント情報</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合はnullを返す</remarks>
 		public AssetBundleCatalog.VariantInfo[] GetAssetBundleVariantInfos(string assetBundleNameWithVariant) {
 			assetBundleNameWithVariant = assetBundleNameWithVariant.ToLower();
 			return m_Catalog.GetAssetBundleVariantInfos(assetBundleNameWithVariant);
