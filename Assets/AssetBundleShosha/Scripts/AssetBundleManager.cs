@@ -29,6 +29,17 @@ namespace AssetBundleShosha {
 
 		#endregion
 		#region Public const fields
+
+		/// <summary>
+		/// 初期ダウンロードタイムアウト秒
+		/// </summary>
+		public const int kDownloadTimeoutSecondsDefault = 30;
+
+		/// <summary>
+		/// 初期並列ダウンロード数
+		/// </summary>
+		public const int kParallelDownloadsCountDefault = 2;
+
 		#endregion
 		#region Public fields and properties
 
@@ -632,13 +643,13 @@ namespace AssetBundleShosha {
 		/// ダウンロードタイムアウト秒
 		/// </summary>
 		[SerializeField]
-		private int m_DownloadTimeoutSeconds = 30;
+		private int m_DownloadTimeoutSeconds = kDownloadTimeoutSecondsDefault;
 
 		/// <summary>
 		/// 並列ダウンロード数
 		/// </summary>
 		[SerializeField]
-		private int m_ParallelDownloadsCount = 2;
+		private int m_ParallelDownloadsCount = kParallelDownloadsCountDefault;
 
 		/// <summary>
 		/// 進捗レシーバー
