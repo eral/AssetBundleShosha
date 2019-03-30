@@ -84,9 +84,14 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		/// <param name="assetBundleName">アセットバンドル名</param>
 		/// <returns>間接含む全依存関係</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合はnullを返す</remarks>
 		public string[] GetAllDependencies(string assetBundleName) {
+			string[] result = null;
 			var index = GetAssetBundleIndex(assetBundleName);
-			return m_AssetBundleDependencies[index].all.Select(x=>m_AllAssetBundleNames[x]).ToArray();
+			if ((0 <= index) && (index < m_AssetBundleDependencies.Length)) {
+				result = m_AssetBundleDependencies[index].all.Select(x=>m_AllAssetBundleNames[x]).ToArray();
+			}
+			return result;
 		}
 
 		/// <summary>
@@ -94,9 +99,14 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		/// <param name="assetBundleName">アセットバンドル名</param>
 		/// <returns>直接依存関係</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合はnullを返す</remarks>
 		public string[] GetDirectDependencies(string assetBundleName) {
+			string[] result = null;
 			var index = GetAssetBundleIndex(assetBundleName);
-			return m_AssetBundleDependencies[index].direct.Select(x=>m_AllAssetBundleNames[x]).ToArray();
+			if ((0 <= index) && (index < m_AssetBundleDependencies.Length)) {
+				result = m_AssetBundleDependencies[index].direct.Select(x=>m_AllAssetBundleNames[x]).ToArray();
+			}
+			return result;
 		}
 
 		/// <summary>
@@ -104,9 +114,14 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		/// <param name="assetBundleName">アセットバンドル名</param>
 		/// <returns>ハッシュ</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合は空ハッシュを返す</remarks>
 		public Hash128 GetAssetBundleHash(string assetBundleName) {
+			var result = new Hash128();
 			var index = GetAssetBundleIndex(assetBundleName);
-			return m_AssetBundleHashes[index];
+			if ((0 <= index) && (index < m_AssetBundleHashes.Length)) {
+				result = m_AssetBundleHashes[index];
+			}
+			return result;
 		}
 
 		/// <summary>
@@ -114,9 +129,14 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		/// <param name="assetBundleName">アセットバンドル名</param>
 		/// <returns>CRC</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合は0を返す</remarks>
 		public uint GetAssetBundleCrc(string assetBundleName) {
+			var result = 0u;
 			var index = GetAssetBundleIndex(assetBundleName);
-			return m_AssetBundleCrcs[index];
+			if ((0 <= index) && (index < m_AssetBundleCrcs.Length)) {
+				result = m_AssetBundleCrcs[index];
+			}
+			return result;
 		}
 
 		/// <summary>
@@ -124,9 +144,14 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		/// <param name="assetBundleName">アセットバンドル名</param>
 		/// <returns>ファイルサイズ</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合は0を返す</remarks>
 		public uint GetAssetBundleFileSize(string assetBundleName) {
+			var result = 0u;
 			var index = GetAssetBundleIndex(assetBundleName);
-			return m_AssetBundleFileSizes[index];
+			if ((0 <= index) && (index < m_AssetBundleFileSizes.Length)) {
+				result = m_AssetBundleFileSizes[index];
+			}
+			return result;
 		}
 
 		/// <summary>
@@ -134,9 +159,14 @@ namespace AssetBundleShosha.Internal {
 		/// </summary>
 		/// <param name="assetBundleName">アセットバンドル名</param>
 		/// <returns>暗号化ハッシュ</returns>
+		/// <remarks>登録されていないアセットバンドル名の場合は0を返す</remarks>
 		public int GetAssetBundleCryptoHash(string assetBundleName) {
+			var result = 0;
 			var index = GetAssetBundleIndex(assetBundleName);
-			return m_AssetBundleCryptoHashes[index];
+			if ((0 <= index) && (index < m_AssetBundleCryptoHashes.Length)) {
+				result = m_AssetBundleCryptoHashes[index];
+			}
+			return result;
 		}
 
 #if UNITY_EDITOR
