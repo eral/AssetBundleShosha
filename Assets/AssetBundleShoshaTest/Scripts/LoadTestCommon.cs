@@ -57,6 +57,7 @@ namespace AssetBundleShoshaTest {
 			Assert.IsTrue(assetBundle != null);
 			yield return assetBundle;
 			Assert.IsTrue(isloaded);
+			Assert.AreEqual(AssetBundleErrorCode.Null, assetBundle.errorCode);
 
 			Assert.IsTrue(assetBundle.mainAsset == null);
 			Assert.IsTrue(assetBundle.Contains("Primitive"));
@@ -122,6 +123,7 @@ namespace AssetBundleShoshaTest {
 				Assert.IsTrue(assetBundle != null);
 				yield return assetBundle;
 				Assert.IsTrue(isloaded);
+				Assert.AreEqual(AssetBundleErrorCode.Null, assetBundle.errorCode);
 
 				IAssetBundleRequest assetBundleRequest;
 
@@ -166,6 +168,7 @@ namespace AssetBundleShoshaTest {
 			Assert.IsTrue(assetBundle != null);
 			yield return assetBundle;
 			Assert.IsTrue(isloaded);
+			Assert.AreEqual(AssetBundleErrorCode.Null, assetBundle.errorCode);
 
 			Assert.IsTrue(assetBundle.mainAsset == null);
 			Assert.IsTrue(assetBundle.Contains("CryptoAssetBundle"));
@@ -216,6 +219,7 @@ namespace AssetBundleShoshaTest {
 			Assert.IsTrue(deliveryStreamingAsset != null);
 			yield return deliveryStreamingAsset;
 			Assert.IsTrue(isloaded);
+			Assert.AreEqual(AssetBundleErrorCode.Null, deliveryStreamingAsset.errorCode);
 
 			var deliveryStreamingAssetPath = deliveryStreamingAsset.deliveryStreamingAssetPath;
 			Assert.IsFalse(string.IsNullOrEmpty(deliveryStreamingAssetPath));
