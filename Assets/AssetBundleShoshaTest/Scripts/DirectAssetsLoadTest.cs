@@ -95,6 +95,7 @@ namespace AssetBundleShoshaTest {
 			yield return LoadCryptoAssetBundle(assetBundleManager);
 		}
 
+#if EMULATION_NOT_SUPPORTED
 		/// <summary>
 		/// 直接参照系除外アセットバンドル読み込み
 		/// </summary>
@@ -106,7 +107,9 @@ namespace AssetBundleShoshaTest {
 
 			yield return LoadDirectExcludeAssetBundle(assetBundleManager);
 		}
+#endif
 
+#if EMULATION_NOT_SUPPORTED
 		/// <summary>
 		/// 間接参照系除外アセットバンドル読み込み
 		/// </summary>
@@ -118,6 +121,7 @@ namespace AssetBundleShoshaTest {
 
 			yield return LoadIndirectExcludeAssetBundle(assetBundleManager);
 		}
+#endif
 
 		/// <summary>
 		/// 配信ストリーミングアセット読み込み
