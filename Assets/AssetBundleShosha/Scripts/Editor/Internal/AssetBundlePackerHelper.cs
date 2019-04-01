@@ -7,6 +7,7 @@ namespace AssetBundleShosha.Editor.Internal {
 	using System.IO;
 	using System.Linq;
 	using System.Reflection;
+	using UnityEngine;
 	using UnityEditor;
 	using AssetBundleShosha.Internal;
 
@@ -16,6 +17,12 @@ namespace AssetBundleShosha.Editor.Internal {
 		#region Public const fields
 		#endregion
 		#region Public fields and properties
+
+		/// <summary>
+		/// 除外アセット用アセットバンドル名
+		/// </summary>
+		public string excludeAssetsAssetBundleName {get{return m_excludeAssetsAssetBundleName;}}
+
 		#endregion
 		#region Public methods
 
@@ -55,6 +62,111 @@ namespace AssetBundleShosha.Editor.Internal {
 				if (customizedCryptoHash != 0) {
 					//暗号化アセットバンドル
 					m_CustomizedCryptoHashFromAssetBundleNameWithVariant.Add(assetBundleNameWithVariant, customizedCryptoHash);
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット群のアセットバンドルビルド追加
+		/// </summary>
+		/// <param name="assetBundleBuilds">アセットバンドルビルド</param>
+		/// <returns>true:追加した, false:追加しなかった</returns>
+		public bool AddExcludeAssetsBuild(ref AssetBundleBuild[] assetBundleBuilds) {
+			var result = false;
+			if (0 < excldueAssetLabels.Count()) {
+#if false
+				var includeAssetPaths = assetBundleBuilds.SelectMany(x=>x.assetNames)
+														.ToArray();
+				var excludeAssetPaths = excldueAssetLabels.Keys.Intersect(includeAssetPaths)
+																.ToArray();
+#else
+				var excludeAssetPaths = excldueAssetLabels.Keys.ToArray();
+#endif
+				if (0 < excludeAssetPaths.Length) {
+					var exclude = kExcludeAssetLabel.ToLower();
+					var index = 0;
+					while (assetBundleBuilds.Any(x=>x.assetBundleName == exclude)) {
+						exclude = kExcludeAssetLabel.ToLower() + index.ToString();
+						++index;
+					}
+
+					var excludeAssetsBuild = new AssetBundleBuild{
+												assetBundleName = exclude,
+												assetBundleVariant = string.Empty,
+												assetNames = excludeAssetPaths,
+												addressableNames = null
+											};
+
+					System.Array.Resize(ref assetBundleBuilds, assetBundleBuilds.Length + 1);
+					assetBundleBuilds[assetBundleBuilds.Length - 1] = excludeAssetsBuild;
+					m_excludeAssetsAssetBundleName = exclude;
+					result = true;
+				}
+			}
+			if (!result) {
+				m_excludeAssetsAssetBundleName = null;
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット群を除いた全てのアセットバンドル名取得
+		/// </summary>
+		/// <param name="manifest">マニフェスト</param>
+		/// <returns>全てのアセットバンドル名</returns>
+		public string[] GetAllAssetBundlesWithoutExcludeAssets(AssetBundleManifest manifest) {
+			var result = manifest.GetAllAssetBundles();
+			if (!string.IsNullOrEmpty(m_excludeAssetsAssetBundleName)) {
+				if (0 <= System.Array.IndexOf(result, m_excludeAssetsAssetBundleName)) {
+					result = result.Where(x=>x != m_excludeAssetsAssetBundleName).ToArray();
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット群を除いた全てのバリアント付きアセットバンドル名取得
+		/// </summary>
+		/// <param name="manifest">マニフェスト</param>
+		/// <returns>全てのバリアント付きアセットバンドル名</returns>
+		public string[] GetAllAssetBundlesWithVariantWithoutExcludeAssets(AssetBundleManifest manifest) {
+			var result = manifest.GetAllAssetBundlesWithVariant();
+			if (!string.IsNullOrEmpty(m_excludeAssetsAssetBundleName)) {
+				if (0 <= System.Array.IndexOf(result, m_excludeAssetsAssetBundleName)) {
+					result = result.Where(x=>x != m_excludeAssetsAssetBundleName).ToArray();
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット群を除いた間接含む全依存関係の取得
+		/// </summary>
+		/// <param name="manifest">マニフェスト</param>
+		/// <param name="assetBundleName">アセットバンドル名</param>
+		/// <returns>間接含む全依存関係</returns>
+		public string[] GetAllDependenciesWithoutExcludeAssets(AssetBundleManifest manifest, string assetBundleName) {
+			var result = manifest.GetAllDependencies(assetBundleName);
+			if (!string.IsNullOrEmpty(m_excludeAssetsAssetBundleName)) {
+				if (0 <= System.Array.IndexOf(result, m_excludeAssetsAssetBundleName)) {
+					result = result.Where(x=>x != m_excludeAssetsAssetBundleName).ToArray();
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット群を除いた直接依存関係の取得
+		/// </summary>
+		/// <param name="manifest">マニフェスト</param>
+		/// <param name="assetBundleName">アセットバンドル名</param>
+		/// <returns>直接依存関係</returns>
+		public string[] GetDirectDependenciesWithoutExcludeAssets(AssetBundleManifest manifest, string assetBundleName) {
+			var result = manifest.GetDirectDependencies(assetBundleName);
+			if (!string.IsNullOrEmpty(m_excludeAssetsAssetBundleName)) {
+				if (0 <= System.Array.IndexOf(result, m_excludeAssetsAssetBundleName)) {
+					result = result.Where(x=>x != m_excludeAssetsAssetBundleName).ToArray();
 				}
 			}
 			return result;
@@ -129,6 +241,7 @@ namespace AssetBundleShosha.Editor.Internal {
 			m_CustomizedCryptoHashFromAssetBundleNameWithVariant.Clear();
 			m_CustomizedExcludeFromAssetPath.Clear();
 			m_AssetBundleCryptoEditor.Dispose();
+			m_excludeAssetsAssetBundleName = null;
 		}
 
 		/// <summary>
@@ -181,10 +294,21 @@ namespace AssetBundleShosha.Editor.Internal {
 		#region Private fields and properties
 
 		/// <summary>
+		/// 除外アセット用アセットバンドル名
+		/// </summary>
+		private string m_excludeAssetsAssetBundleName = null;
+
+		/// <summary>
 		/// 除外アセットバンドルラベル辞書
 		/// </summary>
 		private Dictionary<string, object> excldueAssetBundleLabels {get{if (m_ExcludeAssetBundleLabels == null) {m_ExcludeAssetBundleLabels = GetExcludeAssetBundleLabels();} return m_ExcludeAssetBundleLabels;}}
 		private Dictionary<string, object> m_ExcludeAssetBundleLabels;
+
+		/// <summary>
+		/// 除外アセットラベル辞書
+		/// </summary>
+		private Dictionary<string, object> excldueAssetLabels {get{if (m_ExcludeAssetLabels == null) {m_ExcludeAssetLabels = GetExcludeAssetLabelAssetPaths();} return m_ExcludeAssetLabels;}}
+		private Dictionary<string, object> m_ExcludeAssetLabels;
 
 		/// <summary>
 		/// 梱包関数群
@@ -224,6 +348,33 @@ namespace AssetBundleShosha.Editor.Internal {
 									.Select(x=>AssetDatabase.GUIDToAssetPath(x))
 									.Select(x=>AssetDatabase.GetImplicitAssetBundleName(x))
 									.Where(x=>!string.IsNullOrEmpty(x))
+									.ToDictionary(x=>x, y=>(object)null);
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセットラベル辞書取得
+		/// </summary>
+		/// <returns>除外アセットラベル辞書</returns>
+		private static Dictionary<string, object> GetExcludeAssetLabelAssetPaths() {
+			var result = AssetDatabase.FindAssets("l:" + kExcludeAssetLabel)
+									.Select(x=>AssetDatabase.GUIDToAssetPath(x))
+									.Where(x=>{
+										var a = AssetDatabase.LoadMainAssetAtPath(x);
+										var l = AssetDatabase.GetLabels(a);
+										var r = 0 <= System.Array.IndexOf(l, kExcludeAssetLabel);
+										return r;
+									})
+									.Distinct()
+									.SelectMany(x=>{if (AssetDatabase.IsValidFolder(x)) {
+											return AssetDatabase.FindAssets("t:Object", new[]{x})
+																.Select(y=>AssetDatabase.GUIDToAssetPath(y))
+																.Where(y=>!AssetDatabase.IsValidFolder(y));
+										} else {
+											return new[]{x};
+										}
+									})
+									.Select(x=>{Debug.Log(x);return x;})
 									.ToDictionary(x=>x, y=>(object)null);
 			return result;
 		}

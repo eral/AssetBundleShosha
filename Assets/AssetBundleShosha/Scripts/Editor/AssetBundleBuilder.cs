@@ -139,6 +139,7 @@ namespace AssetBundleShosha.Editor {
 												.Select(x=>packerHelper.PackAssetBundle(x))
 												.Where(x=>!string.IsNullOrEmpty(x.assetBundleName))
 												.ToArray();
+			packerHelper.AddExcludeAssetsBuild(ref assetBundleBuilds);
 
 			var assetBundleOptions = BuildAssetBundleOptions.ChunkBasedCompression;
 			if ((options & BuildFlags.ForceRebuild) != 0) {
@@ -149,7 +150,7 @@ namespace AssetBundleShosha.Editor {
 			var preOutputPath = kPreOutputBasePath + "/" + platformString;
 			CreateDirectory(preOutputPath);
 			var manifest = BuildPipeline.BuildAssetBundles(preOutputPath, assetBundleBuilds, assetBundleOptions, targetPlatform);
-			var filePaths = manifest.GetAllAssetBundles().ToDictionary(x=>x, x=>new List<string>{preOutputPath + "/" + x});
+			var filePaths = packerHelper.GetAllAssetBundlesWithoutExcludeAssets(manifest).ToDictionary(x=>x, x=>new List<string>{preOutputPath + "/" + x});
 
 			//暗号化
 			{
@@ -194,9 +195,9 @@ namespace AssetBundleShosha.Editor {
 		/// <returns>カタログ</returns>
 		private static AssetBundleWithPathCatalog CreateAssetBundleCatalog(AssetBundleManifest manifest, Dictionary<string, List<string>> filePaths, AssetBundlePackerHelper packerHelper) {
 			var result = ScriptableObject.CreateInstance<AssetBundleWithPathCatalog>();
-			var allAssetBundles = manifest.GetAllAssetBundles();
+			var allAssetBundles = packerHelper.GetAllAssetBundlesWithoutExcludeAssets(manifest);
 			System.Array.Sort(allAssetBundles);
-			var allAssetBundlesWithVariant = manifest.GetAllAssetBundlesWithVariant();
+			var allAssetBundlesWithVariant = packerHelper.GetAllAssetBundlesWithVariantWithoutExcludeAssets(manifest);
 			result.SetAllAssetBundles(allAssetBundles, allAssetBundlesWithVariant);
 			
 			foreach (var assetBundle in allAssetBundles) {
@@ -204,8 +205,8 @@ namespace AssetBundleShosha.Editor {
 
 				
 				result.SetDependencies(assetBundleIndex
-									, GetSortedAllDependencies(manifest, assetBundle)
-									, manifest.GetDirectDependencies(assetBundle)
+									, GetSortedAllDependencies(manifest, assetBundle, packerHelper)
+									, packerHelper.GetDirectDependenciesWithoutExcludeAssets(manifest, assetBundle)
 									);
 				var cryptoHash = packerHelper.GetCustomizedCryptoHash(assetBundle);
 				result.SetAssetBundleCryptoHash(assetBundleIndex
@@ -493,12 +494,13 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="path">アセットバンドルファイルパス</param>
 		/// <param name="assetBundle">アセットバンドル名</param>
+		/// <param name="packerHelper">梱包呼び出しヘルパー</param>
 		/// <returns>被参照数降順の間接含む全依存関係</returns>
-		private static string[] GetSortedAllDependencies(AssetBundleManifest manifest, string assetBundle) {
-			var result = manifest.GetAllDependencies(assetBundle);
+		private static string[] GetSortedAllDependencies(AssetBundleManifest manifest, string assetBundle, AssetBundlePackerHelper packerHelper) {
+			var result = packerHelper.GetAllDependenciesWithoutExcludeAssets(manifest, assetBundle);
 			var dependenceCount = result.ToDictionary(x=>x, x=>1);
 			foreach (var targetAssetBundle in result) {
-				foreach (var dependence in manifest.GetAllDependencies(targetAssetBundle)) {
+				foreach (var dependence in packerHelper.GetAllDependenciesWithoutExcludeAssets(manifest, targetAssetBundle)) {
 					++dependenceCount[dependence];
 				}
 			}

@@ -95,6 +95,34 @@ namespace AssetBundleShoshaTest {
 			yield return LoadCryptoAssetBundle(assetBundleManager);
 		}
 
+#if EMULATION_NOT_SUPPORTED
+		/// <summary>
+		/// 直接参照系除外アセットバンドル読み込み
+		/// </summary>
+		/// <returns>コルーチン</returns>
+		[UnityTest] [Timeout(10000)]
+		public IEnumerator LoadDirectExcludeAssetBundle() {
+			yield return SetupAssetBundleManager();
+			var assetBundleManager = AssetBundleManager.Instance;
+
+			yield return LoadDirectExcludeAssetBundle(assetBundleManager);
+		}
+#endif
+
+#if EMULATION_NOT_SUPPORTED
+		/// <summary>
+		/// 間接参照系除外アセットバンドル読み込み
+		/// </summary>
+		/// <returns>コルーチン</returns>
+		[UnityTest] [Timeout(4000)]
+		public IEnumerator LoadIndirectExcludeAssetBundle() {
+			yield return SetupAssetBundleManager();
+			var assetBundleManager = AssetBundleManager.Instance;
+
+			yield return LoadIndirectExcludeAssetBundle(assetBundleManager);
+		}
+#endif
+
 		/// <summary>
 		/// 配信ストリーミングアセット読み込み
 		/// </summary>
