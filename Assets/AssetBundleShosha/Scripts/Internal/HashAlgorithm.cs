@@ -69,9 +69,10 @@ namespace AssetBundleShosha.Internal {
 				var readSize = 0;
 				do {
 					var read = fileStream.Read(buffer, 0, buffer.Length);
-					result = m_HashAlgorithm.ComputeHash(buffer, 0, read);
+					m_HashAlgorithm.ComputeHash(buffer, 0, read);
 					readSize += read;
 				} while (readSize < fileStream.Length);
+				result = m_HashAlgorithm.Hash;
 			}
 			return result;
 		}
