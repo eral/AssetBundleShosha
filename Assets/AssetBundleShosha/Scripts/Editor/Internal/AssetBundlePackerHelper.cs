@@ -41,6 +41,9 @@ namespace AssetBundleShosha.Editor.Internal {
 						};
 			if (0 < m_Packing.Count) {
 				var option = GetOptionFromAssetBundleNameWithVariant(assetBundleNameWithVariant);
+				if (0 == result.assetNames.Length) {
+					option |= AssetBundlePackerArg.AssetBundleFlags.UnusedName;
+				}
 				var cryptoHash = GetCryptoHash(assetBundleNameWithVariant);
 				var assets = result.assetNames.Select(x=>new AssetBundlePackerArg.Asset{assetPath = x, option = GetAssetOption(x)});
 				m_InvokeParameters[0].Setup(assetBundleNameWithVariant, option, cryptoHash, assets);
@@ -54,8 +57,8 @@ namespace AssetBundleShosha.Editor.Internal {
 				result.assetNames = m_InvokeParameters[0].assets.Where(x=>(x.option & AssetBundlePackerArg.AssetFlags.Exclude) == 0)
 																.Select(x=>x.assetPath)
 																.ToArray();
-				if (result.assetNames.Length == 0) {
-					//梱包アセットが無い場合はダミーウェイトを乗せる
+				if ((result.assetNames.Length == 0) && ((m_InvokeParameters[0].options & AssetBundlePackerArg.AssetBundleFlags.UnusedName) == 0)) {
+					//梱包アセットが無く、未使用名で無い場合はダミーウェイトを乗せる
 					result.assetNames = kDummyWeightPaths; 
 				}
 				var customizedCryptoHash = m_InvokeParameters[0].cryptoHash;

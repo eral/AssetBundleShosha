@@ -53,8 +53,9 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		[System.Flags]
 		public enum AssetBundleFlags {
-			Null	= 0,
-			Exclude	= 1 << 0, //除外
+			Null		= 0,
+			Exclude		= 1 << 0, //除外
+			UnusedName	= 1 << 1, //未使用名(梱包するアセットが無い為基本的に除外対象となる、しかし梱包関数に依ってアセットが追加されると有効として扱われる)(これはUnityEditorの従来の挙動に似せる為のものである)
 		}
 
 		/// <summary>
