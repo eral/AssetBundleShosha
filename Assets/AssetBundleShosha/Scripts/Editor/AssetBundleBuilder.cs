@@ -13,7 +13,7 @@ namespace AssetBundleShosha.Editor {
 	using AssetBundleShosha.Internal;
 	using AssetBundleShosha.Editor.Internal;
 
-	public static class AssetBundleBuilder {
+	public class AssetBundleBuilder : System.IDisposable {
 		#region Public types
 
 		/// <summary>
@@ -49,35 +49,54 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="options">ビルドオプション</param>
 		/// <param name="catalog">カタログ</param>
 		public static void Build(BuildTarget targetPlatform, BuildFlags options, AssetBundleCatalog catalog = null) {
-			if (catalog == null) {
-				catalog = ScriptableObject.CreateInstance<AssetBundleCatalog>();
+			using (var assetBundleBuilder = new AssetBundleBuilder(targetPlatform, options, catalog)) {
+				assetBundleBuilder.BuildInternal();
 			}
+		}
 
-			Preprocess(catalog);
-
-			var catalogAlreadyDontUnloadUnusedAsset = (catalog.hideFlags & HideFlags.DontUnloadUnusedAsset) != 0;
-			if (!catalogAlreadyDontUnloadUnusedAsset) {
-				catalog.hideFlags |= HideFlags.DontUnloadUnusedAsset; //BuildAssetBundlesの実行と共にインスタンスが破棄される為、破棄されない様にする
+		/// <summary>
+		/// IDisposableインターフェース
+		/// </summary>
+		public void Dispose() {
+			m_TargetPlatform = BuildTarget.NoTarget;
+			m_TargetPlatformString = null;
+			m_BuildOptions = BuildFlags.Null;
+			m_Catalog = null;
+			m_AssetBundleBuilds = null;
+			m_DeliveryStreamingAssetBuilds = null;
+			m_ExcludeAssetsAssetBundleName = null;
+			m_ExcludeAssetBundleLabels = null;
+			m_ExcludeAssetLabels = null;
+			m_CustomizedExcludeFromAssetPath = null;
+			m_PackingUserMethods = null;
+			m_PackingUserMethodParameters = null;
+			m_CustomizedCryptoHashFromAssetBundleNameWithVariant = null;
+			if (m_AssetBundleCryptoEditor != null) {
+				m_AssetBundleCryptoEditor.Dispose();
+				m_AssetBundleCryptoEditor = null;
 			}
-
-			var packerHelper = new AssetBundlePackerHelper();
-			var assetBundlesCatalog = BuildAssetBundles(kOutputPath, targetPlatform, packerHelper, options);
-			var deliveryStreamingAssetsCatalog = BuildDeliveryStreamingAssets(kOutputPath, packerHelper, options);
-			MergeAssetBundleCatalog(ref catalog, assetBundlesCatalog, deliveryStreamingAssetsCatalog);
-
-			if (!catalogAlreadyDontUnloadUnusedAsset) {
-				catalog.hideFlags -= HideFlags.DontUnloadUnusedAsset;
-			}
-			catalog.OnBuildFinished();
-			CatalogPostprocess(catalog);
-
-			CreateAssetBundleCatalogAssetBundle(catalog, kOutputPath, targetPlatform, options);
-
-			Postprocess(catalog, kOutputPath, targetPlatform);
 		}
 
 		#endregion
 		#region Private types
+
+		/// <summary>
+		/// 除外アセット群を除いたアセットバンドルマニュフェスト
+		/// </summary>
+		private class AssetBundleManifestWithoutExcludeAssets {
+			public string[] GetAllAssetBundles() {return m_AssetBundleBuilder.GetAllAssetBundlesWithoutExcludeAssets(m_Manifest);}
+			public string[] GetAllAssetBundlesWithVariant() {return m_AssetBundleBuilder.GetAllAssetBundlesWithVariantWithoutExcludeAssets(m_Manifest);}
+			public string[] GetAllDependencies(string assetBundleName) {return m_AssetBundleBuilder.GetAllDependenciesWithoutExcludeAssets(m_Manifest, assetBundleName);}
+			public string[] GetDirectDependencies(string assetBundleName) {return m_AssetBundleBuilder.GetDirectDependenciesWithoutExcludeAssets(m_Manifest, assetBundleName);}
+			public Hash128 GetAssetBundleHash(string assetBundleName) {return m_Manifest.GetAssetBundleHash(assetBundleName);}
+			public AssetBundleManifestWithoutExcludeAssets(AssetBundleBuilder assetBundleBuilder, AssetBundleManifest manifest) {
+				m_AssetBundleBuilder = assetBundleBuilder;
+				m_Manifest = manifest;
+			}
+			private AssetBundleBuilder m_AssetBundleBuilder = null;
+			private AssetBundleManifest m_Manifest = null;
+		}
+
 		#endregion
 		#region Private const fields
 
@@ -101,10 +120,160 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		private const string kPreCatalogOutputBasePath = "AssetBundleShoshaWork/Catalog";
 
+		/// <summary>
+		/// AssetBundlePackerAttribute用バインディングフラグ
+		/// </summary>
+		private const BindingFlags kPackerMethodBindingFlags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+		/// <summary>
+		/// 除外アセットバンドルラベル
+		/// </summary>
+		private const string kExcludeAssetBundleLabel = "ExcludeAssetBundle";
+
+		/// <summary>
+		/// 除外アセットラベル
+		/// </summary>
+		private const string kExcludeAssetLabel = "ExcludeAsset";
+
+		/// <summary>
+		/// ダミーウェイトパス
+		/// </summary>
+		private readonly string[] kDummyWeightPaths = AssetDatabase.FindAssets("t:" + typeof(DummyWeight).FullName)
+																	.Select(x=>AssetDatabase.GUIDToAssetPath(x))
+																	.ToArray();
+
 		#endregion
 		#region Private fields and properties
+
+		/// <summary>
+		/// ターゲットプラットフォーム
+		/// </summary>
+		private BuildTarget m_TargetPlatform = BuildTarget.NoTarget;
+
+		/// <summary>
+		/// ターゲットプラットフォーム文字列
+		/// </summary>
+		private string m_TargetPlatformString = null;
+
+		/// <summary>
+		/// ビルドオプション
+		/// </summary>
+		private BuildFlags m_BuildOptions = BuildFlags.Null;
+
+		/// <summary>
+		/// カタログ
+		/// </summary>
+		private AssetBundleCatalog m_Catalog = null;
+
+		/// <summary>
+		/// アセットバンドルビルド
+		/// </summary>
+		private AssetBundleBuild[] m_AssetBundleBuilds = null;
+
+		/// <summary>
+		/// 配信ストリーミングビルド
+		/// </summary>
+		private List<AssetBundleUtility.DeliveryStreamingAssetInfo> m_DeliveryStreamingAssetBuilds = null;
+
+		/// <summary>
+		/// 除外アセット用アセットバンドル名
+		/// </summary>
+		private string m_ExcludeAssetsAssetBundleName = null;
+
+		/// <summary>
+		/// 除外アセットバンドルラベル辞書
+		/// </summary>
+		private Dictionary<string, object> excldueAssetBundleLabels {get{if (m_ExcludeAssetBundleLabels == null) {m_ExcludeAssetBundleLabels = GetExcludeAssetBundleLabels();} return m_ExcludeAssetBundleLabels;}}
+		private Dictionary<string, object> m_ExcludeAssetBundleLabels = null;
+
+		/// <summary>
+		/// 除外アセットラベル辞書
+		/// </summary>
+		private Dictionary<string, object> excldueAssetLabels {get{if (m_ExcludeAssetLabels == null) {m_ExcludeAssetLabels = GetExcludeAssetLabelAssetPaths();} return m_ExcludeAssetLabels;}}
+		private Dictionary<string, object> m_ExcludeAssetLabels = null;
+
+		/// <summary>
+		/// 除外アセット(アセットパス)
+		/// </summary>
+		/// <remarks>valueは未使用</remarks>
+		private Dictionary<string, object> customizedExcludeFromAssetPath {get{if (m_CustomizedExcludeFromAssetPath == null) {m_CustomizedExcludeFromAssetPath = new Dictionary<string, object>();} return m_CustomizedExcludeFromAssetPath;}}
+		private Dictionary<string, object> m_CustomizedExcludeFromAssetPath = null;
+
+		/// <summary>
+		/// 梱包ユーザー関数群
+		/// </summary>
+		private List<MethodInfo> packingUserMethods {get{if (m_PackingUserMethods == null) {m_PackingUserMethods = GetPackingUserMethods();} return m_PackingUserMethods;}}
+		private List<MethodInfo> m_PackingUserMethods;
+
+		/// <summary>
+		/// 梱包ユーザー関数呼び出し用引数
+		/// </summary>
+		private AssetBundlePackerArg[] packingUserMethodParameters {get{if (m_PackingUserMethodParameters == null) {m_PackingUserMethodParameters = new[]{new AssetBundlePackerArg()};} return m_PackingUserMethodParameters;}}
+		private AssetBundlePackerArg[] m_PackingUserMethodParameters = null;
+
+		/// <summary>
+		/// 暗号化アセットバンドル(バリアント付きアセットバンドル名)
+		/// </summary>
+		private Dictionary<string, int> customizedCryptoHashFromAssetBundleNameWithVariant {get{if (m_CustomizedCryptoHashFromAssetBundleNameWithVariant == null) {m_CustomizedCryptoHashFromAssetBundleNameWithVariant = new Dictionary<string, int>();} return m_CustomizedCryptoHashFromAssetBundleNameWithVariant;}}
+		private Dictionary<string, int> m_CustomizedCryptoHashFromAssetBundleNameWithVariant = null;
+
+		/// <summary>
+		/// アセットバンドル暗号化クラス
+		/// </summary>
+		private AssetBundleCryptoEditor assetBundleCryptoEditor {get{if (m_AssetBundleCryptoEditor == null) {m_AssetBundleCryptoEditor = new AssetBundleCryptoEditor();} return m_AssetBundleCryptoEditor;}}
+		private AssetBundleCryptoEditor m_AssetBundleCryptoEditor = null;
+
 		#endregion
 		#region Private methods
+		
+		/// <summary>
+		/// コンストラクタ
+		/// </summary>
+		/// <param name="targetPlatform">ターゲットプラットフォーム</param>
+		/// <param name="buildOptions">ビルドオプション</param>
+		/// <param name="catalog">カタログ</param>
+		/// <remarks>staticメソッド外からのインスタンス化禁止</remarks>
+		private AssetBundleBuilder(BuildTarget targetPlatform, BuildFlags buildOptions, AssetBundleCatalog catalog) {
+			m_TargetPlatform = targetPlatform;
+			m_TargetPlatformString = AssetBundleEditorUtility.GetPlatformString(targetPlatform);
+			m_BuildOptions = buildOptions;
+			if (catalog != null) {
+				m_Catalog = catalog;
+			} else {
+				m_Catalog = ScriptableObject.CreateInstance<AssetBundleCatalog>();
+			}
+		}
+		private AssetBundleBuilder(BuildTarget targetPlatform, BuildFlags buildOptions) : this(targetPlatform, buildOptions, null) {
+			//empty.
+		}
+
+		/// <summary>
+		/// 構築
+		/// </summary>
+		private void BuildInternal() {
+			Preprocess(m_Catalog);
+
+			var catalogAlreadyDontUnloadUnusedAsset = (m_Catalog.hideFlags & HideFlags.DontUnloadUnusedAsset) != 0;
+			if (!catalogAlreadyDontUnloadUnusedAsset) {
+				m_Catalog.hideFlags |= HideFlags.DontUnloadUnusedAsset; //BuildAssetBundlesの実行と共にインスタンスが破棄される為、破棄されない様にする
+			}
+
+			m_AssetBundleBuilds = CreateAssetBundleBuilds();
+			var assetBundlesCatalog = BuildAssetBundles(kOutputPath);
+			m_DeliveryStreamingAssetBuilds = CreateDeliveryStreamingAssetBuilds();
+			var deliveryStreamingAssetsCatalog = BuildDeliveryStreamingAssets(kOutputPath);
+			MergeAssetBundleCatalog(ref m_Catalog, assetBundlesCatalog, deliveryStreamingAssetsCatalog);
+
+			if (!catalogAlreadyDontUnloadUnusedAsset) {
+				m_Catalog.hideFlags -= HideFlags.DontUnloadUnusedAsset;
+			}
+			m_Catalog.OnBuildFinished();
+			CatalogPostprocess(m_Catalog);
+
+			CreateAssetBundleCatalogAssetBundle(kOutputPath);
+
+			Postprocess(m_Catalog, m_TargetPlatformString, kOutputPath);
+		}
 
 		/// <summary>
 		/// プリプロセス
@@ -127,45 +296,93 @@ namespace AssetBundleShosha.Editor {
 		}
 
 		/// <summary>
+		/// アセットバンドルビルド作成
+		/// </summary>
+		/// <returns>アセットバンドルビルド</returns>
+		private AssetBundleBuild[] CreateAssetBundleBuilds() {
+			var result = AssetDatabase.GetAllAssetBundleNames()
+												.Select(x=>PackAssetBundle(x))
+												.Where(x=>!string.IsNullOrEmpty(x.assetBundleName))
+												.ToArray();
+			AddExcludeAssetsBuild(ref result);
+			return result;
+		}
+
+		/// <summary>
+		/// アセットバンドル梱包
+		/// </summary>
+		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
+		/// <returns>アセットバンドルビルド</returns>
+		private AssetBundleBuild PackAssetBundle(string assetBundleNameWithVariant) {
+			var variantPair = assetBundleNameWithVariant.Split('.');
+			var result = new AssetBundleBuild{
+							assetBundleName = variantPair[0],
+							assetBundleVariant = ((variantPair.Length != 2)? string.Empty: variantPair[1]),
+							assetNames = AssetDatabase.GetAssetPathsFromAssetBundle(assetBundleNameWithVariant),
+							addressableNames = null,
+						};
+			if (0 < packingUserMethods.Count) {
+				var option = GetOptionFromAssetBundleNameWithVariant(assetBundleNameWithVariant);
+				if (0 == result.assetNames.Length) {
+					option |= AssetBundlePackerArg.AssetBundleFlags.UnusedName;
+				}
+				var cryptoHash = GetCryptoHash(assetBundleNameWithVariant);
+				var assets = result.assetNames.Select(x=>new AssetBundlePackerArg.Asset{assetPath = x, option = GetAssetOption(x)});
+				packingUserMethodParameters[0].Setup(assetBundleNameWithVariant, option, cryptoHash, assets);
+				packingUserMethods.ForEach(x=>{
+					x.Invoke(null, kPackerMethodBindingFlags, null, packingUserMethodParameters, null);
+				});
+				if ((packingUserMethodParameters[0].options & AssetBundlePackerArg.AssetBundleFlags.Exclude) != 0) {
+					result.assetBundleName = null;
+					result.assetBundleVariant = null;
+				}
+				result.assetNames = packingUserMethodParameters[0].assets.Where(x=>(x.option & AssetBundlePackerArg.AssetFlags.Exclude) == 0)
+																.Select(x=>x.assetPath)
+																.ToArray();
+				if ((result.assetNames.Length == 0) && ((packingUserMethodParameters[0].options & AssetBundlePackerArg.AssetBundleFlags.UnusedName) == 0)) {
+					//梱包アセットが無く、未使用名で無い場合はダミーウェイトを乗せる
+					result.assetNames = kDummyWeightPaths; 
+				}
+				var customizedCryptoHash = packingUserMethodParameters[0].cryptoHash;
+				if (customizedCryptoHash != 0) {
+					//暗号化アセットバンドル
+					customizedCryptoHashFromAssetBundleNameWithVariant.Add(assetBundleNameWithVariant, customizedCryptoHash);
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
 		/// アセットバンドルの構築
 		/// </summary>
 		/// <param name="outputPath">出力パス</param>
-		/// <param name="targetPlatform">ターゲットプラットフォーム</param>
-		/// <param name="packerHelper">梱包呼び出しヘルパー</param>
-		/// <param name="options">ビルドオプション</param>
 		/// <returns>カタログ</returns>
-		private static AssetBundleWithPathCatalog BuildAssetBundles(string outputPath, BuildTarget targetPlatform, AssetBundlePackerHelper packerHelper, BuildFlags options) {
-			var assetBundleBuilds = AssetDatabase.GetAllAssetBundleNames()
-												.Select(x=>packerHelper.PackAssetBundle(x))
-												.Where(x=>!string.IsNullOrEmpty(x.assetBundleName))
-												.ToArray();
-			packerHelper.AddExcludeAssetsBuild(ref assetBundleBuilds);
-
+		private AssetBundleWithPathCatalog BuildAssetBundles(string outputPath) {
 			var assetBundleOptions = BuildAssetBundleOptions.ChunkBasedCompression;
-			if ((options & BuildFlags.ForceRebuild) != 0) {
+			if ((m_BuildOptions & BuildFlags.ForceRebuild) != 0) {
 				assetBundleOptions |= BuildAssetBundleOptions.ForceRebuildAssetBundle;
 			}
 
-			var platformString = AssetBundleEditorUtility.GetPlatformString(targetPlatform);
-			var preOutputPath = kPreOutputBasePath + "/" + platformString;
+			var preOutputPath = kPreOutputBasePath + "/" + m_TargetPlatformString;
 			CreateDirectory(preOutputPath);
-			var manifest = BuildPipeline.BuildAssetBundles(preOutputPath, assetBundleBuilds, assetBundleOptions, targetPlatform);
-			var filePaths = packerHelper.GetAllAssetBundlesWithoutExcludeAssets(manifest).ToDictionary(x=>x, x=>new List<string>{preOutputPath + "/" + x});
+			var manifestOrigin = BuildPipeline.BuildAssetBundles(preOutputPath, m_AssetBundleBuilds, assetBundleOptions, m_TargetPlatform);
+			var manifest = new AssetBundleManifestWithoutExcludeAssets(this, manifestOrigin);
+			var filePaths = manifest.GetAllAssetBundles().ToDictionary(x=>x, x=>new List<string>{preOutputPath + "/" + x});
 
 			//暗号化
 			{
-				var cryptoFilePaths = filePaths.Where(x=>packerHelper.IsCustomizedCrypto(x.Key))
+				var cryptoFilePaths = filePaths.Where(x=>IsCustomizedCrypto(x.Key))
 												.ToArray();
 				if (0 < cryptoFilePaths.Length) {
-					bool isNonDeterministic = (options & BuildFlags.NonDeterministicCrypto) != 0;
-					var cryptoPreOutputBasePath = kCryptoPreOutputBasePath + "/" + platformString;
+					bool isNonDeterministic = (m_BuildOptions & BuildFlags.NonDeterministicCrypto) != 0;
+					var cryptoPreOutputBasePath = kCryptoPreOutputBasePath + "/" + m_TargetPlatformString;
 					CreateDirectory(cryptoPreOutputBasePath);
 					using (var crypto = new AssetBundleCryptoEditor()) {
 						foreach (var path in cryptoFilePaths) {
 							var cryptoPreOutputPath = cryptoPreOutputBasePath + "/" + path.Key;
 							if (!IsSkippable(path.Value.First(), cryptoPreOutputPath)) {
 								CreateDirectory(cryptoPreOutputPath, true);
-								var cryptoHash = packerHelper.GetCustomizedCryptoHash(path.Key);
+								var cryptoHash = GetCustomizedCryptoHash(path.Key);
 								crypto.Encrypt(path.Value.First(), cryptoPreOutputPath, cryptoHash, isNonDeterministic);
 							}
 							filePaths[path.Key].Insert(0, cryptoPreOutputPath);
@@ -174,12 +391,12 @@ namespace AssetBundleShosha.Editor {
 				}
 			}
 
-			var result = CreateAssetBundleCatalog(manifest, filePaths, packerHelper);
+			var result = CreateAssetBundleCatalog(manifest, filePaths);
 
 			CreateDirectory(outputPath);
 			var hashAlgorithm = new AssetBundleShosha.Internal.HashAlgorithm();
 			foreach (var path in filePaths) {
-				var fileName = outputPath + "/" + hashAlgorithm.GetAssetBundleFileName(platformString, path.Key);
+				var fileName = outputPath + "/" + hashAlgorithm.GetAssetBundleFileName(m_TargetPlatformString, path.Key);
 				CopyFileSkippable(path.Value.First(), fileName);
 			}
 
@@ -191,13 +408,12 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="manifest">マニュフェスト</param>
 		/// <param name="filePaths">ファイルパス</param>
-		/// <param name="packerHelper">梱包呼び出しヘルパー</param>
 		/// <returns>カタログ</returns>
-		private static AssetBundleWithPathCatalog CreateAssetBundleCatalog(AssetBundleManifest manifest, Dictionary<string, List<string>> filePaths, AssetBundlePackerHelper packerHelper) {
+		private AssetBundleWithPathCatalog CreateAssetBundleCatalog(AssetBundleManifestWithoutExcludeAssets manifest, Dictionary<string, List<string>> filePaths) {
 			var result = ScriptableObject.CreateInstance<AssetBundleWithPathCatalog>();
-			var allAssetBundles = packerHelper.GetAllAssetBundlesWithoutExcludeAssets(manifest);
+			var allAssetBundles = manifest.GetAllAssetBundles();
 			System.Array.Sort(allAssetBundles);
-			var allAssetBundlesWithVariant = packerHelper.GetAllAssetBundlesWithVariantWithoutExcludeAssets(manifest);
+			var allAssetBundlesWithVariant = manifest.GetAllAssetBundlesWithVariant();
 			result.SetAllAssetBundles(allAssetBundles, allAssetBundlesWithVariant);
 			
 			foreach (var assetBundle in allAssetBundles) {
@@ -205,10 +421,10 @@ namespace AssetBundleShosha.Editor {
 
 				
 				result.SetDependencies(assetBundleIndex
-									, GetSortedAllDependencies(manifest, assetBundle, packerHelper)
-									, packerHelper.GetDirectDependenciesWithoutExcludeAssets(manifest, assetBundle)
+									, GetSortedAllDependencies(manifest, assetBundle)
+									, manifest.GetDirectDependencies(assetBundle)
 									);
-				var cryptoHash = packerHelper.GetCustomizedCryptoHash(assetBundle);
+				var cryptoHash = GetCustomizedCryptoHash(assetBundle);
 				result.SetAssetBundleCryptoHash(assetBundleIndex
 											, cryptoHash
 											);
@@ -240,27 +456,61 @@ namespace AssetBundleShosha.Editor {
 		}
 
 		/// <summary>
+		/// 配信ストリーミングビルド作成
+		/// </summary>
+		/// <returns>配信ストリーミングビルド</returns>
+		private List<AssetBundleUtility.DeliveryStreamingAssetInfo> CreateDeliveryStreamingAssetBuilds() {
+			var deliveryStreamingAssetBuilds = AssetBundleUtility.GetAllDeliveryStreamingAssetInfos()
+																	.Select(x=>PackDeliveryStreamingAsset(x))
+																	.Where(x=>!string.IsNullOrEmpty(x.deliveryStreamingAssetNameWithVariant))
+																	.ToList();
+			return deliveryStreamingAssetBuilds;
+		}
+
+		/// <summary>
+		/// 配信ストリーミングアセット梱包
+		/// </summary>
+		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
+		/// <returns>配信ストリーミングビルド</returns>
+		private AssetBundleUtility.DeliveryStreamingAssetInfo PackDeliveryStreamingAsset(AssetBundleUtility.DeliveryStreamingAssetInfo deliveryStreamingAssetInfo) {
+			var result = deliveryStreamingAssetInfo;
+			if (0 < packingUserMethods.Count) {
+				var option = GetOptionFromPath(result.path);
+				var cryptoHash = 0;
+				var assets = new[]{new AssetBundlePackerArg.Asset{assetPath = result.path, option = GetAssetOption(result.path)}};
+				packingUserMethodParameters[0].Setup(result.deliveryStreamingAssetNameWithVariant, option, cryptoHash, assets);
+				packingUserMethods.ForEach(x=>{
+					x.Invoke(null, kPackerMethodBindingFlags, null, packingUserMethodParameters, null);
+				});
+				if ((packingUserMethodParameters[0].options & AssetBundlePackerArg.AssetBundleFlags.Exclude) != 0) {
+					result.deliveryStreamingAssetName = null;
+					result.deliveryStreamingAssetNameWithVariant = null;
+					result.variant = null;
+				}
+				result.path = packingUserMethodParameters[0].assets[0].assetPath;
+				if ((packingUserMethodParameters[0].assets[0].option & AssetBundlePackerArg.AssetFlags.Exclude) != 0) {
+					//除外アセット
+					customizedExcludeFromAssetPath.Add(result.path, null);
+				}
+			}
+			return result ;
+		}
+
+		/// <summary>
 		/// 配信ストリーミングアセット名・パスの列挙
 		/// </summary>
 		/// <param name="outputPath">出力パス</param>
-		/// <param name="packerHelper">梱包呼び出しヘルパー</param>
-		/// <param name="options">ビルドオプション</param>
 		/// <returns>カタログ</returns>
-		private static AssetBundleWithPathCatalog BuildDeliveryStreamingAssets(string outputPath, AssetBundlePackerHelper packerHelper, BuildFlags options) {
-			var allDeliveryStreamingAssetInfos = AssetBundleUtility.GetAllDeliveryStreamingAssetInfos()
-																	.Select(x=>packerHelper.PackDeliveryStreamingAsset(x))
-																	.Where(x=>!string.IsNullOrEmpty(x.deliveryStreamingAssetNameWithVariant))
-																	.ToList();
-
-			var result = CreateDeliveryStreamingAssetCatalog(allDeliveryStreamingAssetInfos);
+		private AssetBundleWithPathCatalog BuildDeliveryStreamingAssets(string outputPath) {
+			var result = CreateDeliveryStreamingAssetCatalog();
 
 			if (!AssetBundleEditorUtility.buildOptionSkipFileDeploymentOfDeliveryStreamingAssets) {
 				CreateDirectory(outputPath);
-				var isForceRebuild = (options & BuildFlags.ForceRebuild) != 0;
+				var isForceRebuild = (m_BuildOptions & BuildFlags.ForceRebuild) != 0;
 				var hashAlgorithm = new AssetBundleShosha.Internal.HashAlgorithm();
-				foreach (var deliveryStreamingAssetInfo in allDeliveryStreamingAssetInfos) {
+				foreach (var deliveryStreamingAssetInfo in m_DeliveryStreamingAssetBuilds) {
 					var destPath = outputPath + "/" + hashAlgorithm.GetAssetBundleFileName(null, deliveryStreamingAssetInfo.deliveryStreamingAssetNameWithVariant);
-					if (packerHelper.IsCustomizedExclude(deliveryStreamingAssetInfo.path)) {
+					if (IsCustomizedExclude(deliveryStreamingAssetInfo.path)) {
 						//0バイト配信ストリーミングアセット
 						var isDestAssetExists = File.Exists(destPath);
 						if (isDestAssetExists) {
@@ -288,21 +538,20 @@ namespace AssetBundleShosha.Editor {
 		/// <summary>
 		/// 配信ストリーミングアセット用カタログ構築
 		/// </summary>
-		/// <param name="deliveryStreamingAssetInfos">配信ストリーミングアセット情報</param>
 		/// <returns>カタログ</returns>
-		private static AssetBundleWithPathCatalog CreateDeliveryStreamingAssetCatalog(List<AssetBundleUtility.DeliveryStreamingAssetInfo> deliveryStreamingAssetInfos) {
+		private AssetBundleWithPathCatalog CreateDeliveryStreamingAssetCatalog() {
 			var result = ScriptableObject.CreateInstance<AssetBundleWithPathCatalog>();
-			var allAssetBundles = deliveryStreamingAssetInfos.Select(x=>x.deliveryStreamingAssetNameWithVariant)
+			var allAssetBundles = m_DeliveryStreamingAssetBuilds.Select(x=>x.deliveryStreamingAssetNameWithVariant)
 														.ToArray();
 			System.Array.Sort(allAssetBundles);
 
-			var allAssetBundlesWithVariant = deliveryStreamingAssetInfos.Where(x=>x.deliveryStreamingAssetName != x.deliveryStreamingAssetNameWithVariant)
+			var allAssetBundlesWithVariant = m_DeliveryStreamingAssetBuilds.Where(x=>x.deliveryStreamingAssetName != x.deliveryStreamingAssetNameWithVariant)
 																	.Select(x=>x.deliveryStreamingAssetNameWithVariant)
 																	.ToArray();
 			result.SetAllAssetBundles(allAssetBundles, allAssetBundlesWithVariant);
 			
 			var emptyDependencies = new string[0];
-			foreach (var deliveryStreamingAssetInfo in deliveryStreamingAssetInfos) {
+			foreach (var deliveryStreamingAssetInfo in m_DeliveryStreamingAssetBuilds) {
 				var assetBundleIndex = result.GetAssetBundleIndexOnEditor(deliveryStreamingAssetInfo.deliveryStreamingAssetNameWithVariant);
 				var path = deliveryStreamingAssetInfo.path;
 				result.SetDependencies(assetBundleIndex
@@ -383,14 +632,42 @@ namespace AssetBundleShosha.Editor {
 		}
 
 		/// <summary>
+		/// カタログのアセットバンドル構築
+		/// </summary>
+		/// <param name="outputPath">出力パス</param>
+		private void CreateAssetBundleCatalogAssetBundle(string outputPath) {
+			var inAssetsCatalogOutputPath = kInAssetsCatalogOutputBasePath + "/" + m_TargetPlatformString + "/catalog.asset";
+			CreateDirectory(inAssetsCatalogOutputPath, true);
+			AssetDatabase.CreateAsset(m_Catalog, inAssetsCatalogOutputPath);
+
+			const BuildAssetBundleOptions kAssetBundleOptions = BuildAssetBundleOptions.None;
+			var assetBundleBuilds = new[]{new AssetBundleBuild{assetBundleName = "catalog", assetNames = new[]{inAssetsCatalogOutputPath}}};
+			var preCatalogOutput = kPreCatalogOutputBasePath + "/" + m_TargetPlatformString;
+			CreateDirectory(preCatalogOutput);
+			BuildPipeline.BuildAssetBundles(preCatalogOutput, assetBundleBuilds, kAssetBundleOptions, m_TargetPlatform);
+
+			CreateDirectory(outputPath);
+			{
+				var path = preCatalogOutput + "/" + assetBundleBuilds[0].assetBundleName;
+				var fileName = outputPath + "/" + new AssetBundleShosha.Internal.HashAlgorithm().GetAssetBundleFileName(m_TargetPlatformString, null);
+				CopyFileSkippable(path, fileName);
+			}
+			var publicJsonFullPath = Application.dataPath + "/../" + outputPath + "/" + m_TargetPlatformString + ".json";
+			m_Catalog.SavePublicJson(publicJsonFullPath);
+			if ((m_BuildOptions & BuildFlags.OutputDetailJson) != 0) {
+				var detailJsonFullPath = Application.dataPath + "/../" + kPreOutputBasePath + "/" + m_TargetPlatformString + ".json";
+				m_Catalog.SaveDetailJson(detailJsonFullPath);
+			}
+		}
+
+		/// <summary>
 		/// ポストプロセス
 		/// </summary>
 		/// <param name="catalog">カタログ</param>
+		/// <param name="platformString">ターゲットプラットフォーム文字列</param>
 		/// <param name="outputPath">出力パス</param>
-		/// <param name="targetPlatform">ターゲットプラットフォーム</param>
-		private static void Postprocess(AssetBundleCatalog catalog, string outputPath, BuildTarget targetPlatform) {
+		private static void Postprocess(AssetBundleCatalog catalog, string platformString, string outputPath) {
 			const BindingFlags kPostprocessMethodBindingFlags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-			var platformString = AssetBundleEditorUtility.GetPlatformString(targetPlatform);
 			var postProcess = System.AppDomain.CurrentDomain
 											.GetAssemblies()
 											.SelectMany(x=>x.GetTypes())
@@ -406,45 +683,12 @@ namespace AssetBundleShosha.Editor {
 		}
 
 		/// <summary>
-		/// カタログのアセットバンドル構築
-		/// </summary>
-		/// <param name="catalog">カタログ</param>
-		/// <param name="outputPath">出力パス</param>
-		/// <param name="targetPlatform">ターゲットプラットフォーム</param>
-		/// <param name="options">ビルドオプション</param>
-		private static void CreateAssetBundleCatalogAssetBundle(AssetBundleCatalog catalog, string outputPath, BuildTarget targetPlatform, BuildFlags options) {
-			var platformString = AssetBundleEditorUtility.GetPlatformString(targetPlatform);
-			var inAssetsCatalogOutputPath = kInAssetsCatalogOutputBasePath + "/" + platformString + "/catalog.asset";
-			CreateDirectory(inAssetsCatalogOutputPath, true);
-			AssetDatabase.CreateAsset(catalog, inAssetsCatalogOutputPath);
-
-			const BuildAssetBundleOptions kAssetBundleOptions = BuildAssetBundleOptions.None;
-			var assetBundleBuilds = new[]{new AssetBundleBuild{assetBundleName = "catalog", assetNames = new[]{inAssetsCatalogOutputPath}}};
-			var preCatalogOutput = kPreCatalogOutputBasePath + "/" + platformString;
-			CreateDirectory(preCatalogOutput);
-			BuildPipeline.BuildAssetBundles(preCatalogOutput, assetBundleBuilds, kAssetBundleOptions, targetPlatform);
-
-			CreateDirectory(outputPath);
-			{
-				var path = preCatalogOutput + "/" + assetBundleBuilds[0].assetBundleName;
-				var fileName = outputPath + "/" + new AssetBundleShosha.Internal.HashAlgorithm().GetAssetBundleFileName(platformString, null);
-				CopyFileSkippable(path, fileName);
-			}
-			var publicJsonFullPath = Application.dataPath + "/../" + outputPath + "/" + platformString + ".json";
-			catalog.SavePublicJson(publicJsonFullPath);
-			if ((options & BuildFlags.OutputDetailJson) != 0) {
-				var detailJsonFullPath = Application.dataPath + "/../" + kPreOutputBasePath + "/" + platformString + ".json";
-				catalog.SaveDetailJson(detailJsonFullPath);
-			}
-		}
-
-		/// <summary>
 		/// ディレクトリ作成
 		/// </summary>
 		/// <param name="path">作成するディレクトリのパス</param>
 		/// <param name="excludeLastName">最後の名前を除外</param>
 		private static void CreateDirectory(string path, bool excludeLastName = false) {
-			path = ConvertToPOSIXPath(path);
+			ConvertToPOSIXPath(ref path);
 			if (excludeLastName) {
 				var excludeIndex = path.LastIndexOf('/');
 				if (0 <= excludeIndex) {
@@ -464,7 +708,7 @@ namespace AssetBundleShosha.Editor {
 				//ディレクトリ区切りが無いなら
 				//ディレクトリ作成
 				var fullPath = Application.dataPath + "/../" + path;
-				System.IO.Directory.CreateDirectory(fullPath);
+				Directory.CreateDirectory(fullPath);
 			} else {
 				var parentDirectory = path.Substring(0, separateIndex);
 				if (parentDirectory == "Assets") {
@@ -472,7 +716,7 @@ namespace AssetBundleShosha.Editor {
 					AssetDatabase.CreateFolder(parentDirectory, targetDirectory);
 				} else {
 					var fullPath = Application.dataPath + "/../" + path;
-					System.IO.Directory.CreateDirectory(fullPath);
+					Directory.CreateDirectory(fullPath);
 				}
 			}
 		}
@@ -482,25 +726,22 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="path">パス</param>
 		/// <returns>POSIXパス</returns>
-		private static string ConvertToPOSIXPath(string path) {
-#if UNITY_EDITOR_WIN
+		[System.Diagnostics.Conditional("UNITY_EDITOR_WIN")]
+		private static void ConvertToPOSIXPath(ref string path) {
 			path = path.Replace('\\', '/');
-#endif
-			return path;
 		}
 
 		/// <summary>
 		/// 間接含む全依存関係を被参照数降順で取得
 		/// </summary>
-		/// <param name="path">アセットバンドルファイルパス</param>
+		/// <param name="manifest">アセットバンドルマニュフェスト</param>
 		/// <param name="assetBundle">アセットバンドル名</param>
-		/// <param name="packerHelper">梱包呼び出しヘルパー</param>
 		/// <returns>被参照数降順の間接含む全依存関係</returns>
-		private static string[] GetSortedAllDependencies(AssetBundleManifest manifest, string assetBundle, AssetBundlePackerHelper packerHelper) {
-			var result = packerHelper.GetAllDependenciesWithoutExcludeAssets(manifest, assetBundle);
+		private static string[] GetSortedAllDependencies(AssetBundleManifestWithoutExcludeAssets manifest, string assetBundle) {
+			var result = manifest.GetAllDependencies(assetBundle);
 			var dependenceCount = result.ToDictionary(x=>x, x=>1);
 			foreach (var targetAssetBundle in result) {
-				foreach (var dependence in packerHelper.GetAllDependenciesWithoutExcludeAssets(manifest, targetAssetBundle)) {
+				foreach (var dependence in manifest.GetAllDependencies(targetAssetBundle)) {
 					++dependenceCount[dependence];
 				}
 			}
@@ -573,7 +814,7 @@ namespace AssetBundleShosha.Editor {
 		/// <returns>ファイルサイズ</returns>
 		private static long GetFileSizeFromFile(string path) {
 			var fullPath = Application.dataPath + "/../" + path;
-			var fileInfo = new System.IO.FileInfo(fullPath);
+			var fileInfo = new FileInfo(fullPath);
 			return fileInfo.Length;
 		}
 
@@ -583,7 +824,7 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="path"></param>
 		private static void CreateEmptyAsset(string path) {
 			var fullPath = Application.dataPath + "/../" + path;
-			File.Create(fullPath).Close();;
+			File.Create(fullPath).Close();
 		}
 
 		/// <summary>
@@ -645,6 +886,272 @@ namespace AssetBundleShosha.Editor {
 			if (0 <= dotIndex) {
 				result = result.Substring(0, dotIndex) + ext;
 			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット群のアセットバンドルビルド追加
+		/// </summary>
+		/// <param name="assetBundleBuilds">アセットバンドルビルド</param>
+		/// <returns>true:追加した, false:追加しなかった</returns>
+		private bool AddExcludeAssetsBuild(ref AssetBundleBuild[] assetBundleBuilds) {
+			var result = false;
+			if (0 < excldueAssetLabels.Count()) {
+#if false
+				var includeAssetPaths = assetBundleBuilds.SelectMany(x=>x.assetNames)
+														.ToArray();
+				var excludeAssetPaths = excldueAssetLabels.Keys.Intersect(includeAssetPaths)
+																.ToArray();
+#else
+				var excludeAssetPaths = excldueAssetLabels.Keys.ToArray();
+#endif
+				if (0 < excludeAssetPaths.Length) {
+					var exclude = kExcludeAssetLabel.ToLower();
+					var index = 0;
+					while (assetBundleBuilds.Any(x=>x.assetBundleName == exclude)) {
+						exclude = kExcludeAssetLabel.ToLower() + index.ToString();
+						++index;
+					}
+
+					var excludeAssetsBuild = new AssetBundleBuild{
+												assetBundleName = exclude,
+												assetBundleVariant = string.Empty,
+												assetNames = excludeAssetPaths,
+												addressableNames = null
+											};
+
+					System.Array.Resize(ref assetBundleBuilds, assetBundleBuilds.Length + 1);
+					assetBundleBuilds[assetBundleBuilds.Length - 1] = excludeAssetsBuild;
+					m_ExcludeAssetsAssetBundleName = exclude;
+					result = true;
+				}
+			}
+			if (!result) {
+				m_ExcludeAssetsAssetBundleName = null;
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット群を除いた全てのアセットバンドル名取得
+		/// </summary>
+		/// <param name="manifest">マニフェスト</param>
+		/// <returns>全てのアセットバンドル名</returns>
+		private string[] GetAllAssetBundlesWithoutExcludeAssets(AssetBundleManifest manifest) {
+			var result = manifest.GetAllAssetBundles();
+			if (!string.IsNullOrEmpty(m_ExcludeAssetsAssetBundleName)) {
+				if (0 <= System.Array.IndexOf(result, m_ExcludeAssetsAssetBundleName)) {
+					result = result.Where(x=>x != m_ExcludeAssetsAssetBundleName).ToArray();
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット群を除いた全てのバリアント付きアセットバンドル名取得
+		/// </summary>
+		/// <param name="manifest">マニフェスト</param>
+		/// <returns>全てのバリアント付きアセットバンドル名</returns>
+		private string[] GetAllAssetBundlesWithVariantWithoutExcludeAssets(AssetBundleManifest manifest) {
+			var result = manifest.GetAllAssetBundlesWithVariant();
+			if (!string.IsNullOrEmpty(m_ExcludeAssetsAssetBundleName)) {
+				if (0 <= System.Array.IndexOf(result, m_ExcludeAssetsAssetBundleName)) {
+					result = result.Where(x=>x != m_ExcludeAssetsAssetBundleName).ToArray();
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット群を除いた間接含む全依存関係の取得
+		/// </summary>
+		/// <param name="manifest">マニフェスト</param>
+		/// <param name="assetBundleName">アセットバンドル名</param>
+		/// <returns>間接含む全依存関係</returns>
+		private string[] GetAllDependenciesWithoutExcludeAssets(AssetBundleManifest manifest, string assetBundleName) {
+			var result = manifest.GetAllDependencies(assetBundleName);
+			if (!string.IsNullOrEmpty(m_ExcludeAssetsAssetBundleName)) {
+				if (0 <= System.Array.IndexOf(result, m_ExcludeAssetsAssetBundleName)) {
+					result = result.Where(x=>x != m_ExcludeAssetsAssetBundleName).ToArray();
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット群を除いた直接依存関係の取得
+		/// </summary>
+		/// <param name="manifest">マニフェスト</param>
+		/// <param name="assetBundleName">アセットバンドル名</param>
+		/// <returns>直接依存関係</returns>
+		private string[] GetDirectDependenciesWithoutExcludeAssets(AssetBundleManifest manifest, string assetBundleName) {
+			var result = manifest.GetDirectDependencies(assetBundleName);
+			if (!string.IsNullOrEmpty(m_ExcludeAssetsAssetBundleName)) {
+				if (0 <= System.Array.IndexOf(result, m_ExcludeAssetsAssetBundleName)) {
+					result = result.Where(x=>x != m_ExcludeAssetsAssetBundleName).ToArray();
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 暗号化確認
+		/// </summary>
+		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
+		/// <returns>true:暗号化, false:平文</returns>
+		private bool IsCustomizedCrypto(string assetBundleNameWithVariant) {
+			var result = customizedCryptoHashFromAssetBundleNameWithVariant.ContainsKey(assetBundleNameWithVariant);
+			return result;
+		}
+
+		/// <summary>
+		/// 暗号化ハッシュ取得
+		/// </summary>
+		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
+		/// <returns>暗号化ハッシュ</returns>
+		private int GetCustomizedCryptoHash(string assetBundleNameWithVariant) {
+			int result;
+			if (!customizedCryptoHashFromAssetBundleNameWithVariant.TryGetValue(assetBundleNameWithVariant, out result)) {
+				result = 0;
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセット確認
+		/// </summary>
+		/// <param name="assetPath"></param>
+		/// <returns>true:除外アセット, false:梱包アセット</returns>
+		private bool IsCustomizedExclude(string assetPath) {
+			var result = customizedExcludeFromAssetPath.ContainsKey(assetPath);
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセットバンドルラベル辞書取得
+		/// </summary>
+		/// <returns>除外アセットバンドルラベル辞書</returns>
+		private static Dictionary<string, object> GetExcludeAssetBundleLabels() {
+			var result = AssetDatabase.FindAssets("l:" + kExcludeAssetBundleLabel)
+									.Select(x=>AssetDatabase.GUIDToAssetPath(x))
+									.Select(x=>AssetDatabase.GetImplicitAssetBundleName(x))
+									.Where(x=>!string.IsNullOrEmpty(x))
+									.ToDictionary(x=>x, y=>(object)null);
+			return result;
+		}
+
+		/// <summary>
+		/// 除外アセットラベル辞書取得
+		/// </summary>
+		/// <returns>除外アセットラベル辞書</returns>
+		private static Dictionary<string, object> GetExcludeAssetLabelAssetPaths() {
+			var result = AssetDatabase.FindAssets("l:" + kExcludeAssetLabel)
+									.Select(x=>AssetDatabase.GUIDToAssetPath(x))
+									.Where(x=>{
+										var a = AssetDatabase.LoadMainAssetAtPath(x);
+										var l = AssetDatabase.GetLabels(a);
+										var r = 0 <= System.Array.IndexOf(l, kExcludeAssetLabel);
+										return r;
+									})
+									.Distinct()
+									.SelectMany(x=>{if (AssetDatabase.IsValidFolder(x)) {
+											return AssetDatabase.FindAssets("t:Object", new[]{x})
+																.Select(y=>AssetDatabase.GUIDToAssetPath(y))
+																.Where(y=>!AssetDatabase.IsValidFolder(y));
+										} else {
+											return new[]{x};
+										}
+									})
+									.Select(x=>{Debug.Log(x);return x;})
+									.ToDictionary(x=>x, y=>(object)null);
+			return result;
+		}
+
+		/// <summary>
+		/// 梱包ユーザー関数群取得
+		/// </summary>
+		/// <returns>梱包ユーザー関数群</returns>
+		private static List<MethodInfo> GetPackingUserMethods() {
+			var result = System.AppDomain.CurrentDomain
+										.GetAssemblies()
+										.SelectMany(x=>x.GetTypes())
+										.SelectMany(x=>x.GetMethods(kPackerMethodBindingFlags))
+										.SelectMany(x=>System.Attribute.GetCustomAttributes(x, typeof(AssetBundlePackerAttribute))
+																		.Select(y=>new{method = x, order = ((AssetBundlePackerAttribute)y).order}))
+										.OrderBy(x=>x.order)
+										.Select(x=>x.method)
+										.ToList();
+			return result;
+		}
+
+		/// <summary>
+		/// アセットバンドルフラグ取得
+		/// </summary>
+		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
+		/// <returns>アセットバンドルフラグ</returns>
+		private int GetCryptoHashFromAssetBundleNameWithVariant(string assetBundleNameWithVariant) {
+			var result = 0;
+			if (excldueAssetBundleLabels.ContainsKey(assetBundleNameWithVariant)) {
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// アセットバンドルフラグ取得
+		/// </summary>
+		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
+		/// <returns>アセットバンドルフラグ</returns>
+		private AssetBundlePackerArg.AssetBundleFlags GetOptionFromAssetBundleNameWithVariant(string assetBundleNameWithVariant) {
+			var result = AssetBundlePackerArg.AssetBundleFlags.Null;
+			if (excldueAssetBundleLabels.ContainsKey(assetBundleNameWithVariant)) {
+				result = AssetBundlePackerArg.AssetBundleFlags.Exclude;
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// アセットバンドルフラグ取得
+		/// </summary>
+		/// <param name="assetPath">アセットパス</param>
+		/// <returns>アセットバンドルフラグ</returns>
+		private AssetBundlePackerArg.AssetBundleFlags GetOptionFromPath(string assetPath) {
+			var result = AssetBundlePackerArg.AssetBundleFlags.Null;
+			var asset = AssetDatabase.LoadMainAssetAtPath(assetPath);
+			if (AssetDatabase.GetLabels(asset).Contains(kExcludeAssetBundleLabel)) {
+				result = AssetBundlePackerArg.AssetBundleFlags.Exclude;
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 暗号化ハッシュ取得
+		/// </summary>
+		/// <param name="assetBundleNameWithVariant">バリアント付きアセットバンドル名</param>
+		/// <returns>暗号化ハッシュ</returns>
+		private int GetCryptoHash(string assetBundleNameWithVariant) {
+			var result = assetBundleCryptoEditor.GetCryptoHash(assetBundleNameWithVariant);
+			return result;
+		}
+
+		/// <summary>
+		/// アセットフラグ取得
+		/// </summary>
+		/// <param name="assetPath">アセットパス</param>
+		/// <returns>アセットフラグ</returns>
+		private static AssetBundlePackerArg.AssetFlags GetAssetOption(string assetPath) {
+			var result = AssetBundlePackerArg.AssetFlags.Null;
+			var path = assetPath;
+			do {
+				var asset = AssetDatabase.LoadMainAssetAtPath(path);
+				if (AssetDatabase.GetLabels(asset).Contains(kExcludeAssetLabel)) {
+					result = AssetBundlePackerArg.AssetFlags.Exclude;
+					break;
+				}
+				if (!string.IsNullOrEmpty(AssetImporter.GetAtPath(path).assetBundleName)) {
+					break;
+				}
+				path = Path.GetDirectoryName(path);
+			} while ("assets/".Length < path.Length);
 			return result;
 		}
 
