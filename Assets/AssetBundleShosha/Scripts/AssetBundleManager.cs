@@ -838,7 +838,11 @@ namespace AssetBundleShosha {
 			var catalogURL = GetCatalogURL(baseURL);
 			while (true) {
 				//カタログダウンロード
+#if UNITY_2018_1_OR_NEWER
+				var catalogRequest = UnityWebRequestAssetBundle.GetAssetBundle(catalogURL);
+#else
 				var catalogRequest = UnityWebRequest.GetAssetBundle(catalogURL);
+#endif
 				yield return catalogRequest.SendWebRequest();
 				if (catalogRequest.isHttpError || catalogRequest.isNetworkError) {
 					//ダウンロードエラーなら

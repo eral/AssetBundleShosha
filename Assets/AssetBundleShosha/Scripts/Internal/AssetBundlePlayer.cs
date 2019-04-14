@@ -298,7 +298,11 @@ namespace AssetBundleShosha.Internal {
 				hash = manager.catalog.GetAssetBundleHash(nameWithVariant),
 				crc = manager.catalog.GetAssetBundleCrc(nameWithVariant)
 			};
+#if UNITY_2018_1_OR_NEWER
+			m_DownloadWork.request = UnityWebRequestAssetBundle.GetAssetBundle(m_DownloadWork.url, m_DownloadWork.hash, m_DownloadWork.crc);
+#else
 			m_DownloadWork.request = UnityWebRequest.GetAssetBundle(m_DownloadWork.url, m_DownloadWork.hash, m_DownloadWork.crc);
+#endif
 			var sendWebRequest = m_DownloadWork.request.SendWebRequest();
 			var progress = -1.0f;
 			var startTime = Time.realtimeSinceStartup;
