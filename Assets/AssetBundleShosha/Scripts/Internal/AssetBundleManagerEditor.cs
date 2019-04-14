@@ -279,32 +279,13 @@ namespace AssetBundleShosha.Internal {
 			if (assetBundleShoshaEditorAssembly == null) {
 				return;
 			}
-			var assetBundleCatalogPostprocessorAttributeType = assetBundleShoshaEditorAssembly.GetType("AssetBundleShosha.Editor.AssetBundleCatalogPostprocessorAttribute");
-			if (assetBundleCatalogPostprocessorAttributeType == null) {
+			var assetBundleBuilderType = assetBundleShoshaEditorAssembly.GetType("AssetBundleShosha.Editor.AssetBundleBuilder");
+			if (assetBundleBuilderType == null) {
 				return;
 			}
-			var assetBundleCatalogPostprocessorArgType = assetBundleShoshaEditorAssembly.GetType("AssetBundleShosha.Editor.AssetBundleCatalogPostprocessorArg");
-			if (assetBundleCatalogPostprocessorArgType == null) {
-				return;
-			}
-			var assetBundleCatalogPostprocessorAttributeOrderPropertyBindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly;
-			var assetBundleCatalogPostprocessorAttributeOrderProperty = assetBundleCatalogPostprocessorAttributeType.GetProperty("order", assetBundleCatalogPostprocessorAttributeOrderPropertyBindingFlags);
-
-			const BindingFlags kCatalogPostprocessMethodBindingFlags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-			var postProcess = System.AppDomain.CurrentDomain
-											.GetAssemblies()
-											.SelectMany(x=>x.GetTypes())
-											.SelectMany(x=>x.GetMethods(kCatalogPostprocessMethodBindingFlags))
-											.SelectMany(x=>System.Attribute.GetCustomAttributes(x, assetBundleCatalogPostprocessorAttributeType)
-																			.Select(y=>new{method = x, order = (int)assetBundleCatalogPostprocessorAttributeOrderProperty.GetValue(y, null)}))
-											.ToList();
-			postProcess.Sort((x,y)=>x.order - y.order);
-			const BindingFlags kAssetBundleCatalogPostprocessorArgCreateInstanceBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-			var assetBundleCatalogPostprocessorArgInstance = System.Activator.CreateInstance(assetBundleCatalogPostprocessorArgType, kAssetBundleCatalogPostprocessorArgCreateInstanceBindingFlags, null, new[]{catalog}, System.Globalization.CultureInfo.CurrentUICulture);
-			var invokeParameters = new[]{assetBundleCatalogPostprocessorArgInstance};
-			postProcess.ForEach(x=>{
-				x.method.Invoke(null, kCatalogPostprocessMethodBindingFlags, null, invokeParameters, null);
-			});
+			var catalogPostprocessBindingFlags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+			var assetBundleBuilderCatalogPostprocess = assetBundleBuilderType.GetMethod("CatalogPostprocess", catalogPostprocessBindingFlags);
+			assetBundleBuilderCatalogPostprocess.Invoke(null, new[]{catalog});
 		}
 
 		/// <summary>
