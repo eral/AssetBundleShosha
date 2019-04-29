@@ -4,10 +4,10 @@
 
 namespace AssetBundleShosha.Editor {
 	using AssetBundleShosha.Internal;
+	using AssetBundleShosha.Editor.Internal;
 	using UnityEngine;
 
-	[System.AttributeUsage(System.AttributeTargets.Method)]
-	public class AssetBundlePostprocessorAttribute : System.Attribute {
+	public class AssetBundlePostprocessorAttribute : AssetBundleCustomProcessorAttribute {
 		#region Public types
 
 		/// <summary>
@@ -22,7 +22,7 @@ namespace AssetBundleShosha.Editor {
 		/// <summary>
 		/// 実行順
 		/// </summary>
-		public int order {get{return m_Order;}}
+		public override int order {get{return m_Order;}}
 
 		#endregion
 		#region Public methods

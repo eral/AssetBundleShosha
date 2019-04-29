@@ -4,9 +4,9 @@
 
 namespace AssetBundleShosha.Editor {
 	using System.Collections.Generic;
+	using AssetBundleShosha.Editor.Internal;
 
-	[System.AttributeUsage(System.AttributeTargets.Method)]
-	public class AssetBundlePackerAttribute : System.Attribute {
+	public class AssetBundlePackerAttribute : AssetBundleCustomProcessorAttribute {
 		#region Public types
 
 		/// <summary>
@@ -21,7 +21,7 @@ namespace AssetBundleShosha.Editor {
 		/// <summary>
 		/// 実行順
 		/// </summary>
-		public int order {get{return m_Order;}}
+		public override int order {get{return m_Order;}}
 
 		#endregion
 		#region Public methods

@@ -281,17 +281,11 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="catalog">カタログ</param>
 		private static void Preprocess(AssetBundleCatalog catalog) {
 			const BindingFlags kPreprocessMethodBindingFlags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-			var postProcess = System.AppDomain.CurrentDomain
-											.GetAssemblies()
-											.SelectMany(x=>x.GetTypes())
-											.SelectMany(x=>x.GetMethods(kPreprocessMethodBindingFlags))
-											.SelectMany(x=>System.Attribute.GetCustomAttributes(x, typeof(AssetBundlePreprocessorAttribute))
-																			.Select(y=>new{method = x, order = ((AssetBundlePreprocessorAttribute)y).order}))
-											.ToList();
-			postProcess.Sort((x,y)=>x.order - y.order);
+			var customProcessors = AssetBundleCustomProcessorAttribute.GetAllMethodInfoInCurrentDomain<AssetBundlePreprocessorAttribute>(kPreprocessMethodBindingFlags)
+																		.ToList();
 			var invokeParameters = new[]{new AssetBundlePreprocessorArg(catalog)};
-			postProcess.ForEach(x=>{
-				x.method.Invoke(null, kPreprocessMethodBindingFlags, null, invokeParameters, null);
+			customProcessors.ForEach(x=>{
+				x.Invoke(null, kPreprocessMethodBindingFlags, null, invokeParameters, null);
 			});
 		}
 
@@ -617,17 +611,11 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="catalog">カタログ</param>
 		private static void CatalogPostprocess(AssetBundleCatalog catalog) {
 			const BindingFlags kCatalogPostprocessMethodBindingFlags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-			var postProcess = System.AppDomain.CurrentDomain
-											.GetAssemblies()
-											.SelectMany(x=>x.GetTypes())
-											.SelectMany(x=>x.GetMethods(kCatalogPostprocessMethodBindingFlags))
-											.SelectMany(x=>System.Attribute.GetCustomAttributes(x, typeof(AssetBundleCatalogPostprocessorAttribute))
-																			.Select(y=>new{method = x, order = ((AssetBundleCatalogPostprocessorAttribute)y).order}))
-											.ToList();
-			postProcess.Sort((x,y)=>x.order - y.order);
+			var customProcessors = AssetBundleCustomProcessorAttribute.GetAllMethodInfoInCurrentDomain<AssetBundleCatalogPostprocessorAttribute>(kCatalogPostprocessMethodBindingFlags)
+																		.ToList();
 			var invokeParameters = new[]{new AssetBundleCatalogPostprocessorArg(catalog)};
-			postProcess.ForEach(x=>{
-				x.method.Invoke(null, kCatalogPostprocessMethodBindingFlags, null, invokeParameters, null);
+			customProcessors.ForEach(x=>{
+				x.Invoke(null, kCatalogPostprocessMethodBindingFlags, null, invokeParameters, null);
 			});
 		}
 
@@ -668,17 +656,11 @@ namespace AssetBundleShosha.Editor {
 		/// <param name="outputPath">出力パス</param>
 		private static void Postprocess(AssetBundleCatalog catalog, string platformString, string outputPath) {
 			const BindingFlags kPostprocessMethodBindingFlags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-			var postProcess = System.AppDomain.CurrentDomain
-											.GetAssemblies()
-											.SelectMany(x=>x.GetTypes())
-											.SelectMany(x=>x.GetMethods(kPostprocessMethodBindingFlags))
-											.SelectMany(x=>System.Attribute.GetCustomAttributes(x, typeof(AssetBundlePostprocessorAttribute))
-																			.Select(y=>new{method = x, order = ((AssetBundlePostprocessorAttribute)y).order}))
-											.ToList();
-			postProcess.Sort((x,y)=>x.order - y.order);
+			var customProcessors = AssetBundleCustomProcessorAttribute.GetAllMethodInfoInCurrentDomain<AssetBundlePostprocessorAttribute>(kPostprocessMethodBindingFlags)
+																		.ToList();
 			var invokeParameters = new[]{new AssetBundlePostprocessorArg(catalog, outputPath, platformString)};
-			postProcess.ForEach(x=>{
-				x.method.Invoke(null, kPostprocessMethodBindingFlags, null, invokeParameters, null);
+			customProcessors.ForEach(x=>{
+				x.Invoke(null, kPostprocessMethodBindingFlags, null, invokeParameters, null);
 			});
 		}
 
@@ -1072,15 +1054,8 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <returns>梱包ユーザー関数群</returns>
 		private static List<MethodInfo> GetPackingUserMethods() {
-			var result = System.AppDomain.CurrentDomain
-										.GetAssemblies()
-										.SelectMany(x=>x.GetTypes())
-										.SelectMany(x=>x.GetMethods(kPackerMethodBindingFlags))
-										.SelectMany(x=>System.Attribute.GetCustomAttributes(x, typeof(AssetBundlePackerAttribute))
-																		.Select(y=>new{method = x, order = ((AssetBundlePackerAttribute)y).order}))
-										.OrderBy(x=>x.order)
-										.Select(x=>x.method)
-										.ToList();
+			var result = AssetBundleCustomProcessorAttribute.GetAllMethodInfoInCurrentDomain<AssetBundlePackerAttribute>(kPackerMethodBindingFlags)
+															.ToList();
 			return result;
 		}
 
