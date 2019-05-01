@@ -268,88 +268,10 @@ namespace AssetBundleShosha.Internal {
 		public virtual void OnBuildFinished() {
 			//empty.
 		}
-
-		/// <summary>
-		/// 公開JSON出力
-		/// </summary>
-		/// <param name="fullPath">出力先</param>
-		public virtual void SavePublicJson(string fullPath) {
-			var publicInfo = new PublicInfo();
-			publicInfo.contentHash = GetContentHash();
-			var publicJsonString = JsonUtility.ToJson(publicInfo);
-			System.IO.File.WriteAllText(fullPath, publicJsonString);
-		}
-
-		/// <summary>
-		/// 詳細JSON出力
-		/// </summary>
-		/// <param name="fullPath">出力先</param>
-		public virtual void SaveDetailJson(string fullPath) {
-			var hashAlgorithm = new HashAlgorithm();
-			var platformString = AssetBundleUtility.GetPlatformString();
-
-			var detailJson = new DetailJson();
-			detailJson.contentHash = GetContentHash();
-			var contents = new List<DetailJson.Content>(allAssetBundleNames.Length);
-			for (int i = 0, iMax = allAssetBundleNames.Length; i < iMax; ++i) {
-				var assetBundleNameWithVariant = allAssetBundleNames[i];
-				string fileName;
-				if (AssetBundleUtility.IsDeliveryStreamingAsset(assetBundleNameWithVariant)) {
-					//配信ストリーミングアセット
-					fileName = hashAlgorithm.GetAssetBundleFileName(null, assetBundleNameWithVariant);
-				} else {
-					//アセットバンドル
-					fileName = hashAlgorithm.GetAssetBundleFileName(platformString, assetBundleNameWithVariant);
-				}
-				var dependencies = m_AssetBundleDependencies[i];
-				var content = new DetailJson.Content{
-					name = assetBundleNameWithVariant,
-					fileName = fileName,
-					hash = m_AssetBundleHashes[i].ToString(),
-					crc = m_AssetBundleCrcs[i],
-					fileSize = m_AssetBundleFileSizes[i],
-					cryptoHash = m_AssetBundleCryptoHashes[i],
-					allDependencies = dependencies.all.Select(x=>m_AllAssetBundleNames[x]).ToArray(),
-					directDependencies = dependencies.direct.Select(x=>m_AllAssetBundleNames[x]).ToArray(),
-				};
-				contents.Add(content);
-			}
-			detailJson.contents = contents;
-			var detailJsonString = JsonUtility.ToJson(detailJson);
-			System.IO.File.WriteAllText(fullPath, detailJsonString);
-		}
 #endif
 
 		#endregion
 		#region Protected types
-
-#if UNITY_EDITOR
-		/// <summary>
-		/// 公開情報
-		/// </summary>
-		protected class PublicInfo {
-			public uint contentHash;
-		}
-
-		/// <summary>
-		/// 公開情報
-		/// </summary>
-		protected class DetailJson : PublicInfo {
-			[System.Serializable]
-			public class Content {
-				public string name;
-				public string fileName;
-				public string hash;
-				public uint crc;
-				public uint fileSize;
-				public int cryptoHash;
-				public string[] allDependencies;
-				public string[] directDependencies;
-			}
-			public List<Content> contents;
-		}
-#endif
-
 		#endregion
 		#region Protected fields and properties
 

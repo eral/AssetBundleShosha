@@ -29,6 +29,31 @@ namespace AssetBundleShosha.Editor {
 			NonDeterministicCrypto						= 1 << 4,	//非決定性暗号化
 		}
 
+		/// <summary>
+		/// カタログ公開JSON
+		/// </summary>
+		public class CatalogPublicJson {
+			public uint contentHash;
+		}
+
+		/// <summary>
+		/// カタログ詳細JSON
+		/// </summary>
+		public class CatalogDetailJson : CatalogPublicJson {
+			[System.Serializable]
+			public class Content {
+				public string name;
+				public string fileName;
+				public string hash;
+				public uint crc;
+				public uint fileSize;
+				public int cryptoHash;
+				public string[] allDependencies;
+				public string[] directDependencies;
+			}
+			public List<Content> contents;
+		}
+
 		#endregion
 		#region Public const fields
 
@@ -641,11 +666,60 @@ namespace AssetBundleShosha.Editor {
 				CopyFileSkippable(path, fileName);
 			}
 			var publicJsonFullPath = Application.dataPath + "/../" + outputPath + "/" + m_TargetPlatformString + ".json";
-			m_Catalog.SavePublicJson(publicJsonFullPath);
+			SaveCatalogPublicJson(publicJsonFullPath);
 			if ((m_BuildOptions & BuildFlags.OutputDetailJson) != 0) {
 				var detailJsonFullPath = Application.dataPath + "/../" + kPreOutputBasePath + "/" + m_TargetPlatformString + ".json";
-				m_Catalog.SaveDetailJson(detailJsonFullPath);
+				SaveCatalogDetailJson(detailJsonFullPath);
 			}
+		}
+
+		/// <summary>
+		/// カタログ公開JSON出力
+		/// </summary>
+		/// <param name="fullPath">出力先</param>
+		private void SaveCatalogPublicJson(string fullPath) {
+			var publicInfo = new CatalogPublicJson();
+			publicInfo.contentHash = m_Catalog.GetContentHash();
+			var publicJsonString = JsonUtility.ToJson(publicInfo);
+			File.WriteAllText(fullPath, publicJsonString);
+		}
+
+		/// <summary>
+		/// カタログ詳細JSON出力
+		/// </summary>
+		/// <param name="fullPath">出力先</param>
+		private void SaveCatalogDetailJson(string fullPath) {
+			var hashAlgorithm = new AssetBundleShosha.Internal.HashAlgorithm();
+
+			var detailJson = new CatalogDetailJson();
+			detailJson.contentHash = m_Catalog.GetContentHash();
+			var allAssetBundleNames = m_Catalog.GetAllAssetBundles();
+			var contents = new List<CatalogDetailJson.Content>(allAssetBundleNames.Length);
+			for (int i = 0, iMax = allAssetBundleNames.Length; i < iMax; ++i) {
+				var assetBundleNameWithVariant = allAssetBundleNames[i];
+				string fileName;
+				if (AssetBundleUtility.IsDeliveryStreamingAsset(assetBundleNameWithVariant)) {
+					//配信ストリーミングアセット
+					fileName = hashAlgorithm.GetAssetBundleFileName(null, assetBundleNameWithVariant);
+				} else {
+					//アセットバンドル
+					fileName = hashAlgorithm.GetAssetBundleFileName(m_TargetPlatformString, assetBundleNameWithVariant);
+				}
+				var content = new CatalogDetailJson.Content{
+					name = assetBundleNameWithVariant,
+					fileName = fileName,
+					hash = m_Catalog.GetAssetBundleHash(assetBundleNameWithVariant).ToString(),
+					crc = m_Catalog.GetAssetBundleCrc(assetBundleNameWithVariant),
+					fileSize = m_Catalog.GetAssetBundleFileSize(assetBundleNameWithVariant),
+					cryptoHash = m_Catalog.GetAssetBundleCryptoHash(assetBundleNameWithVariant),
+					allDependencies = m_Catalog.GetAllDependencies(assetBundleNameWithVariant),
+					directDependencies = m_Catalog.GetDirectDependencies(assetBundleNameWithVariant),
+				};
+				contents.Add(content);
+			}
+			detailJson.contents = contents;
+			var detailJsonString = JsonUtility.ToJson(detailJson);
+			File.WriteAllText(fullPath, detailJsonString);
 		}
 
 		/// <summary>
