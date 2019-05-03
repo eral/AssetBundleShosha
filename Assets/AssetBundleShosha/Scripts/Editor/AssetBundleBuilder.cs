@@ -768,8 +768,10 @@ namespace AssetBundleShosha.Editor {
 		private void SetCatalogIncludedAssetsTo(CatalogDetailAndIncludedAssetsJson catalogDetailJson) {
 			var assetBundleIncludedAssets = m_AssetBundleBuilds.ToDictionary(x=>x.assetBundleName + (string.IsNullOrEmpty(x.assetBundleVariant)? string.Empty: "." + x.assetBundleVariant)
 																		, x=>x.assetNames);
+			var allIncludedAssets = GetAllIncludedAssets();
 			var deliveryStreamingAssetIncludedAssets = m_DeliveryStreamingAssetBuilds.ToDictionary(x=>x.deliveryStreamingAssetNameWithVariant
 																								, x=>new[]{x.path});
+
 
 			var allAssetBundleNames = m_Catalog.GetAllAssetBundles();
 			var includedAssets = new List<CatalogDetailAndIncludedAssetsJson.IncludedAsset>(allAssetBundleNames.Length);
@@ -787,19 +789,40 @@ namespace AssetBundleShosha.Editor {
 					//アセットバンドル
 					var includedAsset = new CatalogDetailAndIncludedAssetsJson.IncludedAsset{
 						name = assetBundleNameWithVariant,
-						all = null,
+						all = allIncludedAssets[assetBundleNameWithVariant],
 						direct = assetBundleIncludedAssets[assetBundleNameWithVariant],
 					};
-					var all = AssetDatabase.GetDependencies(includedAsset.direct, true);
-					if (includedAsset.direct.Length == all.Length) {
-						includedAsset.all = all;
-					} else {
-						includedAsset.all = new[]{"<Not Implemented>"};
-					}
 					includedAssets.Add(includedAsset);
 				}
 			}
 			catalogDetailJson.includedAssets = includedAssets;
+		}
+
+		/// <summary>
+		/// 関節を含めた梱包アセットのパス取得
+		/// </summary>
+		/// <returns>Dictionary(バリアント付きアセットバンドル名, 関節を含めた梱包アセットパス群)</returns>
+		private Dictionary<string, string[]> GetAllIncludedAssets() {
+			var assetBundleBuilds = m_AssetBundleBuilds;
+			string[] excludeAssetPaths = kDummyWeightPaths;
+			if (!string.IsNullOrEmpty(m_ExcludeAssetsAssetBundleName)) {
+				//除外アセット用アセットバンドルが有る
+				System.Predicate<AssetBundleBuild> excludeMatch;
+				var variantPair = m_ExcludeAssetsAssetBundleName.Split('.');
+				if (variantPair.Length == 2) {
+					excludeMatch = x=>(x.assetBundleName == variantPair[0]) && (x.assetBundleVariant == variantPair[1]);
+				} else {
+					excludeMatch = x=>(x.assetBundleName == variantPair[0]) && string.IsNullOrEmpty(x.assetBundleVariant);
+				}
+				var excludeAssetBundleBuildIndex = System.Array.FindIndex(m_AssetBundleBuilds, excludeMatch);
+				assetBundleBuilds = m_AssetBundleBuilds.Where((x,i)=>i != excludeAssetBundleBuildIndex).ToArray();
+				var excludeAssetBundleBuild = m_AssetBundleBuilds[excludeAssetBundleBuildIndex];
+				excludeAssetPaths = excludeAssetPaths.Concat(excludeAssetBundleBuild.assetNames).ToArray();
+			}
+
+			var includedAssetsAnalyzer = new IncludedAssetsAnalyzer();
+			var result = includedAssetsAnalyzer.GetAllIncludedAssets(m_AssetBundleBuilds, excludeAssetPaths);
+			return result;
 		}
 
 		/// <summary>
