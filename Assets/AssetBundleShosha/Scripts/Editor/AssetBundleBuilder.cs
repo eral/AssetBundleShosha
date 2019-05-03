@@ -27,6 +27,7 @@ namespace AssetBundleShosha.Editor {
 			SkipFileDeploymentOfDeliveryStreamingAssets	= 1 << 2,	//配信ストリーミングアセットのファイルデプロイを省略する
 			ForceCrypto									= 1 << 3,	//強制暗号化
 			NonDeterministicCrypto						= 1 << 4,	//非決定性暗号化
+			SkipListupIncludedAssetsToDetailJson		= 1 << 5,	//梱包アセットを詳細JSONに出力しない
 		}
 
 		/// <summary>
@@ -52,6 +53,19 @@ namespace AssetBundleShosha.Editor {
 				public string[] directDependencies;
 			}
 			public List<Content> contents;
+		}
+
+		/// <summary>
+		/// 梱包アセット付きカタログ詳細JSON
+		/// </summary>
+		public class CatalogDetailAndIncludedAssetsJson : CatalogDetailJson {
+			[System.Serializable]
+			public class IncludedAsset {
+				public string name;
+				public string[] all;
+				public string[] direct;
+			}
+			public List<IncludedAsset> includedAssets;
 		}
 
 		#endregion
@@ -678,10 +692,18 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="fullPath">出力先</param>
 		private void SaveCatalogPublicJson(string fullPath) {
-			var publicInfo = new CatalogPublicJson();
-			publicInfo.contentHash = m_Catalog.GetContentHash();
-			var publicJsonString = JsonUtility.ToJson(publicInfo);
+			var catalogPublicJson = new CatalogPublicJson();
+			SetCatalogPublicJsonTo(catalogPublicJson);
+			var publicJsonString = JsonUtility.ToJson(catalogPublicJson);
 			File.WriteAllText(fullPath, publicJsonString);
+		}
+
+		/// <summary>
+		/// カタログ公開JSONの設定
+		/// </summary>
+		/// <param name="catalogPublicJson">設定するカタログ公開JSON</param>
+		private void SetCatalogPublicJsonTo(CatalogPublicJson catalogPublicJson) {
+			catalogPublicJson.contentHash = m_Catalog.GetContentHash();
 		}
 
 		/// <summary>
@@ -689,14 +711,33 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		/// <param name="fullPath">出力先</param>
 		private void SaveCatalogDetailJson(string fullPath) {
+			string detailJsonString;
+			if ((m_BuildOptions & BuildFlags.SkipListupIncludedAssetsToDetailJson) != 0) {
+				//梱包アセットを詳細JSONに出力しない
+				var catalogDetailJson = new CatalogDetailJson();
+				SetCatalogDetailJsonTo(catalogDetailJson);
+				detailJsonString = JsonUtility.ToJson(catalogDetailJson);
+			} else {
+				//梱包アセットを詳細JSONに出力する
+				var catalogDetailJson = new CatalogDetailAndIncludedAssetsJson();
+				SetCatalogDetailJsonTo(catalogDetailJson);
+				SetCatalogIncludedAssetsTo(catalogDetailJson);
+				detailJsonString = JsonUtility.ToJson(catalogDetailJson);
+			}
+			File.WriteAllText(fullPath, detailJsonString);
+		}
+
+		/// <summary>
+		/// カタログ詳細JSONの設定
+		/// </summary>
+		/// <param name="catalogDetailJson">設定するカタログ詳細JSON</param>
+		private void SetCatalogDetailJsonTo(CatalogDetailJson catalogDetailJson) {
 			var hashAlgorithm = new AssetBundleShosha.Internal.HashAlgorithm();
 
-			var detailJson = new CatalogDetailJson();
-			detailJson.contentHash = m_Catalog.GetContentHash();
+			SetCatalogPublicJsonTo(catalogDetailJson);
 			var allAssetBundleNames = m_Catalog.GetAllAssetBundles();
 			var contents = new List<CatalogDetailJson.Content>(allAssetBundleNames.Length);
-			for (int i = 0, iMax = allAssetBundleNames.Length; i < iMax; ++i) {
-				var assetBundleNameWithVariant = allAssetBundleNames[i];
+			foreach (var assetBundleNameWithVariant in allAssetBundleNames) {
 				string fileName;
 				if (AssetBundleUtility.IsDeliveryStreamingAsset(assetBundleNameWithVariant)) {
 					//配信ストリーミングアセット
@@ -717,9 +758,48 @@ namespace AssetBundleShosha.Editor {
 				};
 				contents.Add(content);
 			}
-			detailJson.contents = contents;
-			var detailJsonString = JsonUtility.ToJson(detailJson);
-			File.WriteAllText(fullPath, detailJsonString);
+			catalogDetailJson.contents = contents;
+		}
+
+		/// <summary>
+		/// カタログ詳細JSONの設定
+		/// </summary>
+		/// <param name="catalogDetailJson">設定するカタログ詳細JSON</param>
+		private void SetCatalogIncludedAssetsTo(CatalogDetailAndIncludedAssetsJson catalogDetailJson) {
+			var assetBundleIncludedAssets = m_AssetBundleBuilds.ToDictionary(x=>x.assetBundleName + (string.IsNullOrEmpty(x.assetBundleVariant)? string.Empty: "." + x.assetBundleVariant)
+																		, x=>x.assetNames);
+			var deliveryStreamingAssetIncludedAssets = m_DeliveryStreamingAssetBuilds.ToDictionary(x=>x.deliveryStreamingAssetNameWithVariant
+																								, x=>new[]{x.path});
+
+			var allAssetBundleNames = m_Catalog.GetAllAssetBundles();
+			var includedAssets = new List<CatalogDetailAndIncludedAssetsJson.IncludedAsset>(allAssetBundleNames.Length);
+			foreach (var assetBundleNameWithVariant in allAssetBundleNames) {
+				if (AssetBundleUtility.IsDeliveryStreamingAsset(assetBundleNameWithVariant)) {
+					//配信ストリーミングアセット
+					var includedAsset = new CatalogDetailAndIncludedAssetsJson.IncludedAsset{
+						name = assetBundleNameWithVariant,
+						all = null,
+						direct = deliveryStreamingAssetIncludedAssets[assetBundleNameWithVariant],
+					};
+					includedAsset.all = includedAsset.direct;
+					includedAssets.Add(includedAsset);
+				} else {
+					//アセットバンドル
+					var includedAsset = new CatalogDetailAndIncludedAssetsJson.IncludedAsset{
+						name = assetBundleNameWithVariant,
+						all = null,
+						direct = assetBundleIncludedAssets[assetBundleNameWithVariant],
+					};
+					var all = AssetDatabase.GetDependencies(includedAsset.direct, true);
+					if (includedAsset.direct.Length == all.Length) {
+						includedAsset.all = all;
+					} else {
+						includedAsset.all = new[]{"<Not Implemented>"};
+					}
+					includedAssets.Add(includedAsset);
+				}
+			}
+			catalogDetailJson.includedAssets = includedAssets;
 		}
 
 		/// <summary>

@@ -131,6 +131,20 @@ namespace AssetBundleShosha.Editor.Internal {
 		}
 
 		/// <summary>
+		/// アセットバンドル作成オプション・梱包アセットを詳細JSONに出力しない
+		/// </summary>
+		[MenuItem("Assets/AssetBundles/Build AssetBundles/Options/Skip listup included assets to Detail Json", false, 32040)]
+		public static void BuildOptionsSkipListupIncludedAssetsToDetailJson() {
+			AssetBundleEditorUtility.buildOptionSkipListupIncludedAssetsToDetailJson = !AssetBundleEditorUtility.buildOptionSkipListupIncludedAssetsToDetailJson;
+		}
+		[MenuItem("Assets/AssetBundles/Build AssetBundles/Options/Skip listup included assets to Detail Json", true)]
+		public static bool BuildOptionsSkipListupIncludedAssetsToDetailJsonValidate() {
+			var isChecked = AssetBundleEditorUtility.buildOptionSkipListupIncludedAssetsToDetailJson;
+			Menu.SetChecked("Assets/AssetBundles/Build AssetBundles/Options/Skip listup included assets to Detail Json", isChecked);
+			return true;
+		}
+
+		/// <summary>
 		/// サーバーエミュレーション・エミュレーションなし
 		/// </summary>
 		[MenuItem("Assets/AssetBundles/Server Emulation/None", false, 30020)]

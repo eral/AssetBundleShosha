@@ -39,6 +39,11 @@ namespace AssetBundleShosha.Editor {
 		/// </summary>
 		private const string kBuildOptionNonDeterministicCryptoEditorPrefsKey = "AssetBundleShosha/BuildOption/NonDeterministicCrypto";
 
+		/// <summary>
+		/// SkipListupIncludedAssetsToDetailJsonビルドオプションのEditorPrefsキー
+		/// </summary>
+		private const string kBuildOptionSkipListupIncludedAssetsToDetailJsonEditorPrefsKey = "AssetBundleShosha/BuildOption/SkipListupIncludedAssetsToDetailJson";
+
 		#endregion
 		#region Public fields and properties
 
@@ -122,6 +127,22 @@ namespace AssetBundleShosha.Editor {
 			}
 		}}
 
+		/// <summary>
+		/// SkipListupIncludedAssetsToDetailJsonビルドオプション
+		/// </summary>
+		public static bool buildOptionSkipListupIncludedAssetsToDetailJson {get{
+			if (s_BuildOptionSkipListupIncludedAssetsToDetailJson == -1) {
+				s_BuildOptionSkipListupIncludedAssetsToDetailJson = EditorPrefs.GetBool(kBuildOptionSkipListupIncludedAssetsToDetailJsonEditorPrefsKey, false)? 1: 0;
+			}
+			return s_BuildOptionSkipListupIncludedAssetsToDetailJson != 0;
+		} set{
+			var intValue = value? 1: 0;
+			if (s_BuildOptionSkipListupIncludedAssetsToDetailJson != intValue) {
+				s_BuildOptionSkipListupIncludedAssetsToDetailJson = intValue;
+				EditorPrefs.SetBool(kBuildOptionSkipListupIncludedAssetsToDetailJsonEditorPrefsKey, value);
+			}
+		}}
+
 		#endregion
 		#region Public methods
 
@@ -195,6 +216,9 @@ namespace AssetBundleShosha.Editor {
 			}
 			if (AssetBundleEditorUtility.buildOptionNonDeterministicCrypto) {
 				result |= AssetBundleBuilder.BuildFlags.NonDeterministicCrypto;
+			}
+			if (AssetBundleEditorUtility.buildOptionSkipListupIncludedAssetsToDetailJson) {
+				result |= AssetBundleBuilder.BuildFlags.SkipListupIncludedAssetsToDetailJson;
 			}
 			return result;
 		}
@@ -275,6 +299,11 @@ namespace AssetBundleShosha.Editor {
 		/// NonDeterministicCryptoビルドオプション
 		/// </summary>
 		private static int s_BuildOptionNonDeterministicCrypto = -1;
+
+		/// <summary>
+		/// SkipListupIncludedAssetsToDetailJsonビルドオプション
+		/// </summary>
+		private static int s_BuildOptionSkipListupIncludedAssetsToDetailJson = -1;
 
 		#endregion
 		#region Private methods
